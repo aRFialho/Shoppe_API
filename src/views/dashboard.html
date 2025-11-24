@@ -65,6 +65,9 @@
         <button class="tab-btn" data-tab="products">
           <i class="fas fa-box"></i> Produtos
         </button>
+        <button class="tab-btn" data-tab="orders">
+          <i class="fas fa-shopping-cart"></i> Pedidos
+        </button>
         <button class="tab-btn" data-tab="ai">
           <i class="fas fa-robot"></i> IA & Analytics
         </button>
@@ -156,6 +159,37 @@
         </div>
         <div id="products-table" class="table-container">
           <div class="loading">Carregando produtos...</div>
+        </div>
+      </div>
+
+      <!-- Orders Tab -->
+      <div id="orders" class="tab-content">
+        <div class="orders-welcome">
+          <div class="welcome-header">
+            <h2><i class="fas fa-shopping-cart"></i> Gestão de Pedidos</h2>
+            <p>Monitore todos os pedidos da sua loja com alertas inteligentes de alteração de endereço</p>
+          </div>
+          <div class="orders-features">
+            <div class="feature-highlight">
+              <i class="fas fa-list-alt"></i>
+              <span>Histórico Completo</span>
+            </div>
+            <div class="feature-highlight">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>Alertas de Endereço</span>
+            </div>
+            <div class="feature-highlight">
+              <i class="fas fa-chart-line"></i>
+              <span>Análise de Vendas</span>
+            </div>
+            <div class="feature-highlight">
+              <i class="fas fa-download"></i>
+              <span>Exportação</span>
+            </div>
+          </div>
+        </div>
+        <div id="orders-content" class="orders-container">
+          <div class="loading">Carregando pedidos...</div>
         </div>
       </div>
 
@@ -403,7 +437,7 @@
             <button type="submit" class="btn btn-primary">
               Salvar Produto
             </button>
-          </div>
+            </div>
         </form>
       </div>
     </div>

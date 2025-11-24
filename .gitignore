@@ -1,1 +1,19 @@
-.vercel
+      # Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Shopee connection data (dados sensíveis)
+connection_data.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produtos - Shopee Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .shop-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #ecf0f1;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: #3498db;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .page-btn {
+            padding: 10px 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .page-btn:hover {
+            background: #2980b9;
+        }
+
+        .page-btn.active {
+            background: #e74c3c;
+        }
+
+        .page-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 200px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: #bdc3c7;
+        }
+
+        .product-info {
+            padding: 20px;
+        }
+
+        .product-id {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+
+        .product-status {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #27ae60;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-bottom: 10px;
+        }
+
+        .product-update {
+            color: #7f8c8d;
+            font-size: 0.85em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .nav-btn {
+            padding: 12px 24px;
+            background: white;
+            color: #2c3e50;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .nav-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .shop-info {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="/dashboard" class="nav-btn">🏠 Dashboard</a>
+            <a href="/api/my-shopee/stats" class="nav-btn" >�� Estatísticas</a>
+            <a href="/api/my-shopee/status" class="nav-btn" >🔗 Status</a>
+        </div>
+
+        <div class="header">
+            <h1>🛍️ Produtos da Loja</h1>
+            <div class="shop-info">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalProducts">-</div>
+                    <div class="stat-label">Total de Produtos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="currentPage">-</div>
+                    <div class="stat-label">Página Atual</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalPages">-</div>
+                    <div class="stat-label">Total de Páginas</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar produtos por ID...">
+            </div>
+            <div class="pagination">
+                <button class="page-btn" id="prevBtn" onclick="changePage(-1)">⬅️ Anterior</button>
+                <span id="pageInfo">Página 1</span>
+                <button class="page-btn" id="nextBtn" onclick="changePage(1)">Próxima ➡️</button>
+            </div>
+        </div>
+
+        <div id="loadingDiv" class="loading">
+            🔄 Carregando produtos...
+        </div>
+
+        <div id="errorDiv" class="error" style="display: none;">
+            ❌ Erro ao carregar produtos. Tente novamente.
+        </div>
+
+        <div id="productsGrid" class="products-grid" style="display: none;">
+            <!-- Produtos serão carregados aqui -->
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        let totalPages = 0;
+        let allProducts = [];
+
+        // Carregar produtos
+        async function loadProducts(page = 0) {
+            try {
+                document.getElementById('loadingDiv').style.display = 'block';
+                document.getElementById('errorDiv').style.display = 'none';
+                document.getElementById('productsGrid').style.display = 'none';
+
+                const response = await fetch(`/api/my-shopee/products/page/${page}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    allProducts = data.products;
+                    currentPage = data.page;
+                    totalPages = data.total_pages;
+
+                    // Atualizar estatísticas
+                    document.getElementById('totalProducts').textContent = data.total_count.toLocaleString();
+                    document.getElementById('currentPage').textContent = currentPage + 1;
+                    document.getElementById('totalPages').textContent = totalPages;
+
+                    // Atualizar navegação
+                    document.getElementById('pageInfo').textContent = `Página ${currentPage + 1} de ${totalPages}`;
+                    document.getElementById('prevBtn').disabled = currentPage === 0;
+                    document.getElementById('nextBtn').disabled = !data.has_more;
+
+                    // Renderizar produtos
+                    renderProducts(allProducts);
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('errorDiv').style.display = 'block';
+                document.getElementById('errorDiv').textContent = '❌ ' + error.message;
+            } finally {
+                document.getElementById('loadingDiv').style.display = 'none';
+            }
+        }
+
+        // Renderizar produtos na grid
+        function renderProducts(products) {
+            const grid = document.getElementById('productsGrid');
+
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="error">📦 Nenhum produto encontrado</div>';
+                grid.style.display = 'block';
+                return;
+            }
+
+            grid.innerHTML = products.map(product => `
+                <div class="product-card" onclick="viewProductDetails(${product.item_id})">
+                    <div class="product-image">
+                        📦
+                    </div>
+                    <div class="product-info">
+                        <div class="product-id">ID: ${product.item_id}</div>
+                        <div class="product-status">${product.item_status}</div>
+                        <div class="product-update">
+                            Atualizado: ${new Date(product.update_time * 1000).toLocaleDateString('pt-BR')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            grid.style.display = 'grid';
+        }
+
+        // Mudar página
+        function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage >= 0 && newPage < totalPages) {
+                loadProducts(newPage);
+            }
+        }
+
+        // Ver detalhes do produto
+        function viewProductDetails(itemId) {
+            window.open(`/api/my-shopee/product-details/${itemId}`, '_blank');
+        }
+
+        // Buscar produtos
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+
+            if (searchTerm === '') {
+                renderProducts(allProducts);
+            } else {
+                const filtered = allProducts.filter(product =>
+                    product.item_id.toString().includes(searchTerm)
+                );
+                renderProducts(filtered);
+            }
+        });
+
+        // Carregar primeira página ao iniciar
+        loadProducts(0);
+    </script>
+</body>
+</html>
