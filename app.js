@@ -55,7 +55,7 @@ let connectionStore = loadConnectionFromFile();
 // ========================================
 require('dotenv').config();
 
-const FIXED_DOMAIN = process.env.API_BASE_URL || 'https://45917f1f27a3.ngrok-free.app';
+const FIXED_DOMAIN = process.env.API_BASE_URL || 'https://59825dc9a29c.ngrok-free.app';
 
 const SHOPEE_CONFIG = {
   partner_id: process.env.SHOPEE_PARTNER_ID || '2012740',
@@ -970,6 +970,7 @@ app.get('/api/my-shopee/product-details/:item_id', async (req, res) => {
 });
 
 // 2. PAGINAÇÃO DE PRODUTOS
+// ✅ CÓDIGO CORRIGIDO (USAR)
 app.get('/api/my-shopee/products/page/:page', async (req, res) => {
   try {
     const page = parseInt(req.params.page) || 0;
@@ -978,8 +979,11 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
 
     console.log(`📄 Buscando página ${page} (offset: ${offset})`);
 
+    // Carregar dados de conexão
+    const connectionData = loadConnectionFromFile();
+
     // Verificar autenticação
-    if (!savedData.access_token || !savedData.shop_id) {
+    if (!connectionData.access_token || !connectionData.shop_id) {
       return res.json({
         success: false,
         error: 'not_authenticated',
@@ -988,57 +992,42 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
       });
     }
 
-    const url = `${SHOPEE_API_BASE}/product/get_item_list`;
-    const timestamp = Math.floor(Date.now() / 1000);
-    const path = '/api/v2/product/get_item_list';
+    // Função para fazer a requisição
+    // ✅ CÓDIGO CORRIGIDO:
+async function makeProductRequest() {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const path = '/api/v2/product/get_item_list';
+  const signature = generateSignature(
+    path,
+    timestamp,
+    connectionData.access_token,
+    connectionData.shop_id
+  );
 
-    const baseString = `${SHOPEE_PARTNER_ID}${path}${timestamp}${savedData.access_token}${savedData.shop_id}`;
-    const sign = crypto.createHmac('sha256', SHOPEE_PARTNER_KEY).update(baseString).digest('hex');
-
-    console.log('🔐 Dados da requisição:', {
-      partner_id: SHOPEE_PARTNER_ID,
+  const response = await axios.get(`${SHOPEE_CONFIG.api_base}${path}`, {
+    params: {
+      partner_id: SHOPEE_CONFIG.partner_id,
       timestamp: timestamp,
-      shop_id: savedData.shop_id,
+      access_token: connectionData.access_token,
+      shop_id: connectionData.shop_id,
+      sign: signature,
+      item_status: 'NORMAL',
+      page_size: pageSize,
       offset: offset,
-      page_size: pageSize
-    });
+    },
+    timeout: 30000,
+  });
 
-    const requestBody = {
-      partner_id: parseInt(SHOPEE_PARTNER_ID),
-      timestamp: timestamp,
-      access_token: savedData.access_token,
-      sign: sign,
-      shop_id: savedData.shop_id,
-      offset: offset,
-      page_size: pageSize
-    };
+  return response.data;
+}
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    const responseData = await response.json();
+    // Fazer a requisição
+    const responseData = await makeProductRequest();
     console.log('📦 Resposta da Shopee:', responseData);
 
     // Verificar se há erro na resposta
     if (responseData.error) {
       console.log('❌ Erro na API da Shopee:', responseData);
-
-      // Se token inválido, tentar refresh
-      if (responseData.error === 'invalid_acceess_token' || responseData.error === 'invalid_access_token') {
-        return res.json({
-          success: false,
-          error: 'invalid_token',
-          message: 'Token de acesso inválido. Necessário reconectar.',
-          redirect: '/api/my-shopee/connect',
-          details: responseData
-        });
-      }
-
       return res.json({
         success: false,
         error: responseData.error,
@@ -1060,28 +1049,14 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
     const items = responseData.response.item || [];
     console.log(`✅ ${items.length} produtos encontrados na página ${page}`);
 
-    // Se temos produtos, buscar detalhes
-    if (items.length > 0) {
-      const detailedProducts = await getProductsDetails(items.map(item => item.item_id));
-
-      res.json({
-        success: true,
-        products: detailedProducts,
-        total_count: responseData.response.total_count || items.length,
-        page: page,
-        page_size: pageSize,
-        has_next_page: responseData.response.has_next_page || false
-      });
-    } else {
-      res.json({
-        success: true,
-        products: [],
-        total_count: 0,
-        page: page,
-        page_size: pageSize,
-        has_next_page: false
-      });
-    }
+    res.json({
+      success: true,
+      products: items,
+      total_count: responseData.response.total_count || items.length,
+      page: page,
+      page_size: pageSize,
+      has_next_page: responseData.response.has_next_page || false
+    });
 
   } catch (error) {
     console.error('❌ Erro no endpoint de produtos:', error);
@@ -2587,190 +2562,6 @@ app.listen(PORT, () => {
   console.log(`🌐 Domínio personalizado: ${FIXED_DOMAIN}`);
   console.log(`🔗 Callback: ${SHOPEE_CONFIG.redirect_url}`);
   console.log(`📋 Acesse: http://localhost:${PORT}/dashboard`);
-});
-
-// Função para tentar refresh automático do token
-async function tryRefreshToken() {
-  try {
-    console.log('🔄 Tentando renovar token automaticamente...');
-
-    if (!savedData.refresh_token) {
-      console.log('❌ Nenhum refresh token disponível');
-      return false;
-    }
-
-    const refreshUrl = `${SHOPEE_API_BASE}/auth/token/get`;
-    const timestamp = Math.floor(Date.now() / 1000);
-    const path = '/api/v2/auth/token/get';
-
-    const baseString = `${SHOPEE_PARTNER_ID}${path}${timestamp}`;
-    const sign = crypto.createHmac('sha256', SHOPEE_PARTNER_KEY).update(baseString).digest('hex');
-
-    const refreshResponse = await fetch(refreshUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        partner_id: parseInt(SHOPEE_PARTNER_ID),
-        timestamp: timestamp,
-        sign: sign,
-        refresh_token: savedData.refresh_token
-      })
-    });
-
-    const refreshData = await refreshResponse.json();
-    console.log('🔄 Resposta do refresh:', refreshData);
-
-    if (refreshData.access_token) {
-      // Atualizar tokens
-      savedData.access_token = refreshData.access_token;
-      savedData.refresh_token = refreshData.refresh_token;
-      savedData.expires_in = refreshData.expires_in;
-      savedData.lastUpdate = new Date().toISOString();
-
-      // Salvar no arquivo
-      saveDataToFile();
-
-      console.log('✅ Token renovado automaticamente!');
-      return true;
-    } else {
-      console.log('❌ Falha ao renovar token:', refreshData);
-      return false;
-    }
-
-  } catch (error) {
-    console.error('❌ Erro ao renovar token:', error);
-    return false;
-  }
-}
-
-// Modificar o endpoint de produtos para tentar refresh automático
-app.get('/api/my-shopee/products/page/:page', async (req, res) => {
-  try {
-    const page = parseInt(req.params.page) || 0;
-    const pageSize = 100;
-    const offset = page * pageSize;
-
-    console.log(`📄 Buscando página ${page} (offset: ${offset})`);
-
-    // Verificar autenticação
-    if (!savedData.access_token || !savedData.shop_id) {
-      return res.json({
-        success: false,
-        error: 'not_authenticated',
-        message: 'Loja não conectada. É necessário fazer a autenticação.',
-        redirect: '/api/my-shopee/connect'
-      });
-    }
-
-    // Função para fazer a requisição
-    async function makeProductRequest() {
-      const url = `${SHOPEE_API_BASE}/product/get_item_list`;
-      const timestamp = Math.floor(Date.now() / 1000);
-      const path = '/api/v2/product/get_item_list';
-
-      const baseString = `${SHOPEE_PARTNER_ID}${path}${timestamp}${savedData.access_token}${savedData.shop_id}`;
-      const sign = crypto.createHmac('sha256', SHOPEE_PARTNER_KEY).update(baseString).digest('hex');
-
-      const requestBody = {
-        partner_id: parseInt(SHOPEE_PARTNER_ID),
-        timestamp: timestamp,
-        access_token: savedData.access_token,
-        sign: sign,
-        shop_id: savedData.shop_id,
-        offset: offset,
-        page_size: pageSize
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      return await response.json();
-    }
-
-    // Primeira tentativa
-    let responseData = await makeProductRequest();
-    console.log('📦 Primeira tentativa - Resposta da Shopee:', responseData);
-
-    // Se token inválido, tentar refresh e fazer nova requisição
-    if (responseData.error && (responseData.error === 'invalid_acceess_token' || responseData.error === 'invalid_access_token')) {
-      console.log('🔄 Token inválido, tentando refresh...');
-
-      const refreshSuccess = await tryRefreshToken();
-
-      if (refreshSuccess) {
-        console.log('✅ Token renovado, fazendo nova tentativa...');
-        responseData = await makeProductRequest();
-        console.log('📦 Segunda tentativa - Resposta da Shopee:', responseData);
-      } else {
-        return res.json({
-          success: false,
-          error: 'invalid_token',
-          message: 'Token inválido e não foi possível renovar. Necessário reconectar.',
-          redirect: '/api/my-shopee/connect'
-        });
-      }
-    }
-
-    // Verificar se ainda há erro
-    if (responseData.error) {
-      console.log('❌ Erro persistente na API da Shopee:', responseData);
-      return res.json({
-        success: false,
-        error: responseData,
-        message: responseData.message || 'Erro na API da Shopee'
-      });
-    }
-
-    // Processar resposta bem-sucedida
-    if (!responseData.response) {
-      return res.json({
-        success: false,
-        error: 'no_response_data',
-        message: 'Resposta inválida da API da Shopee',
-        details: responseData
-      });
-    }
-
-    const items = responseData.response.item || [];
-    console.log(`✅ ${items.length} produtos encontrados na página ${page}`);
-
-    if (items.length > 0) {
-      const detailedProducts = await getProductsDetails(items.map(item => item.item_id));
-
-      res.json({
-        success: true,
-        products: detailedProducts,
-        total_count: responseData.response.total_count || items.length,
-        page: page,
-        page_size: pageSize,
-        has_next_page: responseData.response.has_next_page || false
-      });
-    } else {
-      res.json({
-        success: true,
-        products: [],
-        total_count: 0,
-        page: page,
-        page_size: pageSize,
-        has_next_page: false
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ Erro no endpoint de produtos:', error);
-    res.json({
-      success: false,
-      error: 'server_error',
-      message: `Erro interno do servidor: ${error.message}`
-    });
-  }
 });
 
 module.exports = app;

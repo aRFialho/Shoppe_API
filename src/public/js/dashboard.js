@@ -1,5 +1,5 @@
 ﻿// ========================================
-// SHOPEE MANAGER DASHBOARD - VERSÃO LIMPA
+// SHOPEE MANAGER DASHBOARD - VERSÃO LIMPA E OTIMIZADA
 // ========================================
 
 // Configuração da API
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   setTimeout(() => {
     initializeEventListeners();
-    loadDashboardData();
+    showTab('dashboard'); // Inicia no dashboard por padrão
     console.log('🚀 Dashboard carregado!');
   }, 500);
 });
@@ -62,23 +62,23 @@ function initializeEventListeners() {
     });
   });
 
-// Event listener específico para aba de pedidos
-const ordersTab = document.querySelector('[data-tab="orders"]');
-if (ordersTab) {
-  ordersTab.addEventListener('click', function() {
-    console.log('🛒 Aba de pedidos ativada');
-    setTimeout(() => {
-      if (ordersCache.data && isCacheValid(ordersCache.filters)) {
-        console.log('📋 Usando cache existente para pedidos');
-        displayOrders(ordersCache.data.orders, ordersCache.data);
-        showCacheIndicator(true);
-      } else {
-        console.log('🔄 Carregando pedidos');
-        loadOrders();
-      }
-    }, 100);
-  });
-}
+  // Event listener específico para aba de pedidos
+  const ordersTab = document.querySelector('[data-tab="orders"]');
+  if (ordersTab) {
+    ordersTab.addEventListener('click', function() {
+      console.log('🛒 Aba de pedidos ativada');
+      setTimeout(() => {
+        if (ordersCache.data && isCacheValid(ordersCache.filters)) {
+          console.log('📋 Usando cache existente para pedidos');
+          displayOrders(ordersCache.data.orders, ordersCache.data);
+          showCacheIndicator(true);
+        } else {
+          console.log('🔄 Carregando pedidos');
+          loadOrders();
+        }
+      }, 100);
+    });
+  }
 
   // Botões principais
   setupButtonListeners();
@@ -103,29 +103,6 @@ function setupButtonListeners() {
   if (syncBtn) {
     syncBtn.addEventListener('click', syncProducts);
   }
-
-  // A função de "novo produto" e seu visual serão removidos,
-  // então o botão correspondente será inativado ou removido no HTML
-  // const newProductBtn = document.getElementById('new-product-btn');
-  // if (newProductBtn) {
-  //   newProductBtn.addEventListener('click', openProductModal);
-  // }
-
-  // Modal (estes botões pertencem aos modais de produto/análise e serão tratados via JS)
-  // const closeModal = document.getElementById('close-modal');
-  // if (closeModal) {
-  //   closeModal.addEventListener('click', closeProductModal);
-  // }
-
-  // const cancelModal = document.getElementById('cancel-modal');
-  // if (cancelModal) {
-  //   cancelModal.addEventListener('click', closeProductModal);
-  // }
-
-  // const productForm = document.getElementById('product-form');
-  // if (productForm) {
-  //   productForm.addEventListener('submit', saveProduct);
-  // }
 }
 
 // ========================================
@@ -161,7 +138,8 @@ function showTab(tabName) {
       // Não fazer nada aqui, o event listener específico cuida disso
       break;
     case 'benchmarking':
-      updateBenchmarkType();
+      // A lógica para benchmarking pode precisar de dados de produtos, por exemplo
+      // updateBenchmarkType();
       break;
     case 'notifications':
       refreshAlerts();
@@ -374,10 +352,13 @@ function displayOrders(orders, metadata) {
   if (!orders || orders.length === 0) {
     ordersContent.innerHTML = `
       <div class="empty-state">
-        <h3>📦 Nenhum Pedido Encontrado</h3>
+        <div class="empty-icon">📦</div>
+        <h3>Nenhum Pedido Encontrado</h3>
         <p>Não há pedidos para os filtros selecionados.</p>
         <div class="empty-actions">
-          <button class="btn btn-primary" onclick="loadOrders()">Atualizar</button>
+          <button class="btn btn-primary" onclick="loadOrders()">
+            <i class="fas fa-refresh"></i> Atualizar
+          </button>
         </div>
       </div>
     `;
@@ -385,13 +366,44 @@ function displayOrders(orders, metadata) {
   }
 
   ordersContent.innerHTML = `
+    <!-- HEADER MELHORADO IGUAL AOS PRODUTOS -->
     <div class="orders-header">
-      <div class="orders-summary">
-        <h3>📦 Pedidos (${metadata.total})</h3>
-        <p>Loja: ${metadata.shop_name || 'N/A'} | Últimos ${metadata.days_filter} dias</p>
+      <div class="section-title">
+        <h2><i class="fas fa-shopping-cart"></i> Pedidos da Shopee</h2>
+        <div class="section-subtitle">
+          <span class="shop-info">
+            <i class="fas fa-store"></i> ${metadata.shop_name || 'N/A'}
+          </span>
+          <span class="period-info">
+            <i class="fas fa-calendar"></i> Últimos ${metadata.days_filter} dias
+          </span>
+          <span class="count-info">
+            <i class="fas fa-box"></i> ${metadata.total} pedidos
+          </span>
+        </div>
       </div>
-      <div class="orders-filters">
-        <select id="status-filter" onchange="filterOrders()">
+      <div class="section-actions">
+        <button class="btn btn-primary" onclick="loadOrders(0, 'ALL', 30, true)">
+          <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+        <button class="btn btn-success" onclick="exportOrderData()">
+          <i class="fas fa-download"></i> Exportar
+        </button>
+        <button class="btn btn-warning" onclick="loadAddressAlerts()">
+          <i class="fas fa-exclamation-triangle"></i> Alertas
+        </button>
+      </div>
+    </div>
+
+    <!-- FILTROS MELHORADOS -->
+    <div class="orders-filters">
+      <div class="filter-group">
+        <label for="orders-search">🔍 Buscar Pedido:</label>
+        <input type="text" id="orders-search" placeholder="Digite número do pedido..." onkeyup="filterOrdersInDashboard()">
+      </div>
+      <div class="filter-group">
+        <label for="orders-status-filter">📊 Status:</label>
+        <select id="orders-status-filter" onchange="filterOrders()">
           <option value="ALL">Todos os Status</option>
           <option value="UNPAID">Não Pago</option>
           <option value="TO_SHIP">A Enviar</option>
@@ -401,45 +413,53 @@ function displayOrders(orders, metadata) {
           <option value="CANCELLED">Cancelado</option>
           <option value="RETURNED">Retornado</option>
         </select>
+      </div>
+      <div class="filter-group">
+        <label for="days-filter">📅 Período:</label>
         <select id="days-filter" onchange="filterOrders()">
           <option value="7">Últimos 7 dias</option>
           <option value="15">Últimos 15 dias</option>
           <option value="30">Últimos 30 dias</option>
-          <option value="60">Últimos 60 dias</option>
         </select>
-        <button class="btn btn-primary" onclick="loadOrders(0, 'ALL', 30, true)">🔄 Atualizar</button>
-        <button class="btn btn-secondary" onclick="loadAddressAlerts()">🚨 Alertas de Endereço</button>
-        <button class="btn btn-success" onclick="exportOrderData()">📊 Exportar Pedidos</button>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-secondary btn-sm" onclick="clearOrderFilters()">
+          <i class="fas fa-eraser"></i> Limpar
+        </button>
       </div>
     </div>
 
+    <!-- GRID DE PEDIDOS MELHORADO -->
     <div class="orders-grid">
-      ${orders.map(order => createOrderCard(order)).join('')}
+      ${orders.map(order => createEnhancedOrderCard(order)).join('')}
     </div>
 
-    <div class="orders-pagination">
-      <button class="btn btn-secondary" onclick="loadOrders(${metadata.page - 1}, '${metadata.status_filter}', ${metadata.days_filter})" ${metadata.page <= 0 ? 'disabled' : ''}>
-        ← Anterior
-      </button>
-      <span>Página ${metadata.page + 1}</span>
-      <button class="btn btn-secondary" onclick="loadOrders(${metadata.page + 1}, '${metadata.status_filter}', ${metadata.days_filter})" ${orders.length < 100 ? 'disabled' : ''}>
-        Próxima →
-      </button>
+    <!-- PAGINAÇÃO MELHORADA -->
+    <div class="pagination-container">
+      <div class="pagination-info">
+        Página ${metadata.page + 1} • ${orders.length} pedidos exibidos
+      </div>
+      <div class="pagination-controls">
+        <button class="btn btn-secondary" onclick="loadOrders(${metadata.page - 1}, '${metadata.status_filter}', ${metadata.days_filter})" ${metadata.page <= 0 ? 'disabled' : ''}>
+          <i class="fas fa-chevron-left"></i> Anterior
+        </button>
+        <span class="page-indicator">Página ${metadata.page + 1}</span>
+        <button class="btn btn-secondary" onclick="loadOrders(${metadata.page + 1}, '${metadata.status_filter}', ${metadata.days_filter})" ${orders.length < 100 ? 'disabled' : ''}>
+          Próxima <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
   `;
 
   // Definir valores dos filtros
-  const statusFilter = document.getElementById('status-filter');
+  const statusFilter = document.getElementById('orders-status-filter');
   const daysFilter = document.getElementById('days-filter');
 
   if (statusFilter) statusFilter.value = metadata.status_filter || 'ALL';
   if (daysFilter) daysFilter.value = metadata.days_filter || 30;
 }
 
-// ========================================
-// FUNÇÃO createOrderCard CORRIGIDA (SEM ESCAPES EXTRAS)
-// ========================================
-function createOrderCard(order) {
+function createEnhancedOrderCard(order) {
   const orderDate = formatFullDate(order.create_time);
   const status = getOrderStatusInfo(order.order_status);
   const hasAddressAlert = order.details?.address_history?.has_changes || false;
@@ -450,96 +470,209 @@ function createOrderCard(order) {
   const buyerUsername = order.details?.buyer_username || order.buyer_username || 'N/A';
   const orderSn = order.order_sn;
 
-  let addressDisplay = '';
-  if (order.details?.recipient_address) {
-    const addr = order.details.recipient_address;
-    addressDisplay = `
-      <div class="order-address">
-        <strong>📍 Endereço:</strong>
-        <div class="address-info">
-          <strong>Nome:</strong> ${addr.name || 'N/A'}<br>
-          <strong>Telefone:</strong> ${addr.phone || 'N/A'}<br>
-          <strong>Endereço:</strong> ${addr.full_address || addr.address || 'Endereço não disponível'}
-        </div>
-      </div>
-    `;
-  }
+  // Simular dados de performance do pedido
+  const orderPerformance = generateOrderPerformance(order);
 
   return `
-    <div class="order-card ${hasAddressAlert ? 'has-alert' : ''}" data-order-sn="${orderSn}">
+    <div class="order-card-enhanced ${hasAddressAlert ? 'has-alert' : ''}" data-order-sn="${orderSn}">
+
+      <!-- HEADER DO PEDIDO -->
       <div class="order-header">
-        <div class="order-info-header">
-          <h4>#${orderSn}</h4>
+        <div class="order-id-section">
+          <span class="order-id-badge">
+            <i class="fas fa-hashtag"></i> ${orderSn}
+          </span>
           <span class="order-status-badge status-${status.class}">${status.text}</span>
-          ${hasAddressAlert ? '<span class="address-alert-tag">🚨 Endereço Alterado</span>' : ''}
+          ${hasAddressAlert ? '<span class="alert-badge">🚨 Endereço Alterado</span>' : ''}
         </div>
-        <div class="order-date">${orderDate}</div>
+        <div class="order-date-section">
+          <i class="fas fa-calendar"></i> ${orderDate}
+        </div>
       </div>
 
-      <div class="order-details-body">
-        <div class="order-buyer-info">
-          <strong>👤 Cliente:</strong> ${buyerUsername}
+      <!-- INFORMAÇÕES DO CLIENTE -->
+      <div class="order-customer-section">
+        <div class="customer-info">
+          <i class="fas fa-user"></i>
+          <span class="customer-name">${buyerUsername}</span>
         </div>
+        <div class="order-metrics">
+          <div class="metric-item">
+            <i class="fas fa-box"></i>
+            <span class="metric-value">${itemsCount}</span>
+            <span class="metric-label">itens</span>
+          </div>
+          <div class="metric-item">
+            <i class="fas fa-clock"></i>
+            <span class="metric-value">${orderPerformance.processing_time}</span>
+            <span class="metric-label">processamento</span>
+          </div>
+        </div>
+      </div>
 
-        <div class="order-items-preview">
-          <strong>📦 Itens:</strong> ${itemsCount} produto(s)
+      <!-- PRODUTOS DO PEDIDO -->
+      <div class="order-items-section">
+        <div class="items-header">
+          <i class="fas fa-shopping-bag"></i>
+          <span>Produtos (${itemsCount})</span>
+        </div>
+        <div class="items-preview">
           ${order.details?.item_list ?
-            `<div class="items-list-preview">
-              ${order.details.item_list.slice(0, 2).map(item =>
-                `<span class="item-tag">${item.item_name || 'Produto'} (${item.model_quantity_purchased || 1}x)</span>`
-              ).join('')}
-              ${order.details.item_list.length > 2 ? `<span class="more-items-tag">+${order.details.item_list.length - 2} mais</span>` : ''}
-            </div>` : ''
+            order.details.item_list.slice(0, 3).map(item => `
+              <div class="item-preview">
+                <div class="item-info">
+                  <span class="item-name">${(item.item_name || 'Produto').substring(0, 40)}${item.item_name?.length > 40 ? '...' : ''}</span>
+                  <span class="item-quantity">Qtd: ${item.model_quantity_purchased || 1}</span>
+                </div>
+              </div>
+            `).join('') :
+            '<div class="no-items">Informações dos produtos não disponíveis</div>'
           }
+          ${itemsCount > 3 ? `<div class="more-items">+${itemsCount - 3} produtos</div>` : ''}
         </div>
-
-        <div class="order-financial-summary">
-          <div class="financial-row">
-            <span>💰 Total:</span>
-            <strong>R$ ${totalAmount.toFixed(2)}</strong>
-          </div>
-          <div class="financial-row">
-            <span>🚚 Frete:</span>
-            <span>R$ ${shippingFee.toFixed(2)}</span>
-          </div>
-          ${order.details?.payment_method ?
-            `<div class="financial-row">
-              <span>💳 Pagamento:</span>
-              <span>${getPaymentMethodText(order.details.payment_method)}</span>
-            </div>` : ''
-          }
-        </div>
-
-        ${addressDisplay}
-
-        ${order.details?.note ?
-          `<div class="order-note-display">
-            <strong>   Observações:</strong>
-            <div class="note-content">${order.details.note}</div>
-          </div>` : ''
-        }
       </div>
 
-      <div class="order-actions-footer">
-        <button class="btn btn-small btn-primary" onclick="viewOrderDetails('${orderSn}')">
-          👁️ Ver Detalhes
+      <!-- VALORES FINANCEIROS -->
+      <div class="order-financial-section">
+        <div class="financial-grid">
+          <div class="financial-item total">
+            <i class="fas fa-dollar-sign"></i>
+            <div class="financial-info">
+              <span class="financial-label">Total</span>
+              <span class="financial-value">R$ ${totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+          <div class="financial-item shipping">
+            <i class="fas fa-truck"></i>
+            <div class="financial-info">
+              <span class="financial-label">Frete</span>
+              <span class="financial-value">R$ ${shippingFee.toFixed(2)}</span>
+            </div>
+          </div>
+          ${order.details?.payment_method ? `
+            <div class="financial-item payment">
+              <i class="fas fa-credit-card"></i>
+              <div class="financial-info">
+                <span class="financial-label">Pagamento</span>
+                <span class="financial-value">${getPaymentMethodText(order.details.payment_method)}</span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- ENDEREÇO (SE DISPONÍVEL) -->
+      ${order.details?.recipient_address ? `
+        <div class="order-address-section">
+          <div class="address-header">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>Endereço de Entrega</span>
+          </div>
+          <div class="address-info">
+            <div class="address-name">${order.details.recipient_address.name || 'N/A'}</div>
+            <div class="address-location">${order.details.recipient_address.full_address || order.details.recipient_address.address || 'Endereço não disponível'}</div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- PERFORMANCE DO PEDIDO -->
+      <div class="order-performance-section">
+        <div class="performance-metrics">
+          <div class="performance-item">
+            <i class="fas fa-star"></i>
+            <span class="performance-label">Score</span>
+            <span class="performance-value">${orderPerformance.score}</span>
+          </div>
+          <div class="performance-item">
+            <i class="fas fa-shipping-fast"></i>
+            <span class="performance-label">Prioridade</span>
+            <span class="performance-value priority-${orderPerformance.priority}">${orderPerformance.priority_text}</span>
+          </div>
+          <div class="performance-item">
+            <i class="fas fa-chart-line"></i>
+            <span class="performance-label">Risco</span>
+            <span class="performance-value risk-${orderPerformance.risk}">${orderPerformance.risk_text}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AÇÕES DO PEDIDO -->
+      <div class="order-actions">
+        <button class="btn btn-primary btn-sm" onclick="viewOrderDetails('${orderSn}')" title="Ver detalhes completos">
+          <i class="fas fa-eye"></i> Detalhes
         </button>
-        ${hasAddressAlert ?
-          `<button class="btn btn-small btn-warning" onclick="viewAddressHistory('${orderSn}')">
-            🚨 Ver Alterações
-          </button>` : ''
-        }
-        <button class="btn btn-small btn-secondary" onclick="exportOrderData('${orderSn}')">
-             Exportar
-        </button>
-        <button class="btn btn-small btn-info" onclick="trackOrder('${orderSn}')">
+        <button class="btn btn-info btn-sm" onclick="trackOrder('${orderSn}')" title="Rastrear pedido">
           <i class="fas fa-route"></i> Rastrear
         </button>
+        ${hasAddressAlert ? `
+          <button class="btn btn-warning btn-sm" onclick="viewAddressHistory('${orderSn}')" title="Ver alterações de endereço">
+            <i class="fas fa-exclamation-triangle"></i> Alertas
+          </button>
+        ` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="exportOrderData('${orderSn}')" title="Exportar pedido">
+          <i class="fas fa-download"></i>
+        </button>
       </div>
+
     </div>
   `;
 }
 
+function generateOrderPerformance(order) {
+  const totalAmount = parseFloat(order.details?.total_amount || 0);
+  const itemsCount = order.details?.item_list?.length || 1;
+  const status = order.order_status;
+
+  // Calcular score baseado em valor e status
+  let score = Math.min(100, Math.max(10, Math.round((totalAmount / 100) + (itemsCount * 5))));
+
+  // Ajustar score baseado no status
+  const statusMultiplier = {
+    'COMPLETED': 1.2,
+    'SHIPPED': 1.1,
+    'TO_SHIP': 1.0,
+    'CANCELLED': 0.3,
+    'RETURNED': 0.4
+  };
+
+  score = Math.round(score * (statusMultiplier[status] || 1.0));
+
+  // Determinar prioridade
+  let priority = 'normal';
+  let priority_text = 'Normal';
+
+  if (totalAmount > 500 || itemsCount > 5) {
+    priority = 'high';
+    priority_text = 'Alta';
+  } else if (totalAmount < 50) {
+    priority = 'low';
+    priority_text = 'Baixa';
+  }
+
+  // Determinar risco
+  let risk = 'low';
+  let risk_text = 'Baixo';
+
+  if (status === 'CANCELLED' || status === 'RETURNED') {
+    risk = 'high';
+    risk_text = 'Alto';
+  } else if (order.details?.address_history?.has_changes) {
+    risk = 'medium';
+    risk_text = 'Médio';
+  }
+
+  // Tempo de processamento simulado
+  const processing_time = Math.floor(Math.random() * 24) + 1; // MANTIDO: Este é um dado simulado pois a API da Shopee não fornece nativamente
+
+  return {
+    score: score,
+    priority: priority,
+    priority_text: priority_text,
+    risk: risk,
+    risk_text: risk_text,
+    processing_time: `${processing_time}h`
+  };
+}
 
 function getOrderStatusInfo(status) {
   const statusMap = {
@@ -751,7 +884,7 @@ function updateLowStockProducts(products) {
 
   const lowStockItems = products.slice(0, 3).map(product => ({
     ...product,
-    stock: Math.floor(Math.random() * 5) + 1
+    stock: Math.floor(Math.random() * 5) + 1 // MANTIDO: Simulação de baixo estoque, pois API não oferece esse cálculo
   }));
 
   container.innerHTML = lowStockItems.map(product => `
@@ -768,75 +901,105 @@ function updateLowStockProducts(products) {
   `).join('');
 }
 
+// ========================================
+// FUNÇÃO loadProducts - VERSÃO ULTRA SIMPLES E DIRETA
+// ========================================
 async function loadProducts() {
   try {
-    console.log('📦 Carregando produtos da Shopee...');
+    console.log('📦 Carregando TODOS os produtos da Shopee...');
     showLoading('products-table');
 
-    const response = await fetch('/api/my-shopee/products/page/0');
+    let allProducts = [];
+    let currentPage = 0;
+    let hasNextPage = true;
+    let totalCount = 0;
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+    // Buscar TODAS as páginas de uma vez
+    while (hasNextPage) {
+      console.log(`📄 Buscando página ${currentPage + 1}...`);
 
-    const data = await response.json();
-    console.log('📋 Resposta completa da API:', data);
-
-    if (!data.success) {
-      console.error('❌ Erro retornado pela API:', data);
-
-      // CORREÇÃO: Verificar erro de token específico
-      if (data.error && (data.error.error === 'invalid_acceess_token' || data.error.error === 'invalid_access_token')) {
-        showNotification('Token expirado. Redirecionando para reconexão...', 'warning');
-        setTimeout(() => {
-          window.location.href = '/api/my-shopee/connect';
-        }, 2000);
-        return;
+      const response = await fetch(`/api/my-shopee/products/page/${currentPage}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // CORREÇÃO: Melhor tratamento do erro
-      const errorMessage = data.error?.message || data.message || data.error || 'Erro desconhecido da API';
-      throw new Error(errorMessage);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error?.message || data.message || 'Erro na API');
+      }
+
+      allProducts.push(...data.products);
+      hasNextPage = data.has_next_page;
+      totalCount = data.total_count;
+      currentPage++;
     }
 
-    // Resto da função...
-    if (data.products && data.products.length > 0) {
-      console.log('📋 Produtos carregados:', data.products.length);
-      console.log('✅ Primeiro produto:', data.products[0]);
+    console.log(`✅ ${allProducts.length} produtos carregados!`);
 
-      displayProductsInDashboard(data);
-      showNotification(`${data.total_count || data.products.length} produtos carregados!`, 'success');
-    } else {
-      console.log('⚠️ Nenhum produto encontrado');
-      displayProductsInDashboard({ products: [], total_count: 0 });
-      showNotification('Nenhum produto encontrado na sua loja', 'info');
-    }
+    // Exibir IMEDIATAMENTE
+    displayProductsInDashboard({
+      products: allProducts,
+      total_count: totalCount
+    });
+
+    showNotification(`${allProducts.length} produtos carregados!`, 'success');
 
   } catch (error) {
-    console.error('❌ Erro ao carregar produtos:', error);
-
-    const container = document.getElementById('products-table');
-    if (container) {
-      container.innerHTML = `
-        <div class="error-message">
-          <i class="fas fa-exclamation-triangle"></i>
-          <h3>Erro ao carregar produtos</h3>
-          <p><strong>Detalhes:</strong> ${error.message}</p>
-          <div style="margin-top: 15px;">
-            <button class="btn btn-primary" onclick="loadProducts()">
-              <i class="fas fa-refresh"></i> Tentar Novamente
-            </button>
-            <button class="btn btn-warning" onclick="reconnectShopee()">
-              <i class="fas fa-link"></i> Reconectar Shopee
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
+    console.error('❌ Erro:', error);
+    showErrorState(error.message);
     showNotification(`Erro: ${error.message}`, 'error');
   }
 }
+
+
+// ========================================
+// FUNÇÃO PARA ATUALIZAR PROGRESSO
+// ========================================
+function updateRealDataProgress(current, total, message) {
+  const container = document.getElementById('products-table');
+  if (container && container.querySelector('.loading-container')) {
+    const percentage = Math.round((current / total) * 100);
+    container.innerHTML = `
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>🔄 ${message}</p>
+        <div class="loading-progress">
+          <div class="progress-bar" style="background: #e9ecef; border-radius: 10px; height: 10px; overflow: hidden; margin: 15px 0;">
+            <div class="progress-fill" style="width: ${percentage}%; height: 100%; background: linear-gradient(90deg, #ee4d2d, #ff6b35); transition: width 0.3s ease;"></div>
+          </div>
+          <small style="display: block; text-align: center; color: #666;">${current} de ${total} lotes processados (${percentage}%)</small>
+          <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <span style="background: rgba(238, 77, 45, 0.1); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">📊 Dados Reais</span>
+            <span style="background: rgba(238, 77, 45, 0.1); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">⚡ Processamento Paralelo</span>
+            <span style="background: rgba(238, 77, 45, 0.1); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">🎯 Otimizado</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function showErrorState(errorMessage) {
+  const container = document.getElementById('products-table');
+  if (container) {
+    container.innerHTML = `
+      <div class="error-message">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Erro ao carregar produtos</h3>
+        <p><strong>Detalhes:</strong> ${errorMessage}</p>
+        <div style="margin-top: 15px;">
+          <button class="btn btn-primary" onclick="loadProducts()">
+            <i class="fas fa-refresh"></i> Tentar Novamente
+          </button>
+          <button class="btn btn-warning" onclick="reconnectShopee()">
+            <i class="fas fa-link"></i> Reconectar Shopee
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+
 async function checkShopeeConnection() {
   try {
     console.log('🔍 Verificando conexão com Shopee...');
@@ -878,306 +1041,19 @@ function reconnectShopee() {
   showNotification('Redirecionando para autenticação...', 'info');
   window.location.href = '/api/my-shopee/connect';
 }
-// ========================================
-// OTIMIZAÇÃO: PROCESSAMENTO EM LOTE + CACHE + DADOS INTELIGENTES
-// ========================================
-async function optimizeProductsData(basicProducts) {
-  const optimizedProducts = [];
-
-  // 1. USAR CACHE LOCAL
-  const cacheKey = 'shopee_products_cache';
-  const cacheExpiry = 30 * 60 * 1000; // 30 minutos
-  const cachedData = getFromCache(cacheKey);
-
-  if (cachedData) {
-    console.log('⚡ Usando dados do cache local');
-    return cachedData;
-  }
-
-  // 2. PROCESSAMENTO EM LOTE (5 produtos por vez)
-  const batchSize = 5;
-  const totalBatches = Math.ceil(basicProducts.length / batchSize);
-
-  updateOptimizedProgress(0, totalBatches, 'Processando em lotes...');
-
-  for (let i = 0; i < basicProducts.length; i += batchSize) {
-    const batch = basicProducts.slice(i, i + batchSize);
-    const currentBatch = Math.floor(i / batchSize) + 1;
-
-    // Processar lote em paralelo
-    const batchPromises = batch.map(product => processProductOptimized(product));
-    const batchResults = await Promise.allSettled(batchPromises);
-
-    // Adicionar resultados
-    batchResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        optimizedProducts.push(result.value);
-      } else {
-        // Fallback para produto básico em caso de erro
-        optimizedProducts.push(enhanceBasicProduct(batch[index]));
-      }
-    });
-
-    updateOptimizedProgress(currentBatch, totalBatches, `Lote ${currentBatch}/${totalBatches}`);
-
-    // Delay mínimo entre lotes para não sobrecarregar
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-
-  // 3. SALVAR NO CACHE
-  saveToCache(cacheKey, optimizedProducts, cacheExpiry);
-
-  return optimizedProducts;
-}
-
-async function processProductOptimized(product) {
-  try {
-    // Timeout de 3 segundos por produto
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-    const response = await fetch(`/api/my-shopee/product-details/${product.item_id}`, {
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error('API response not ok');
-    }
-
-    const data = await response.json();
-
-    if (data.success && data.details.response?.item_list?.[0]) {
-      const fullProduct = data.details.response.item_list[0];
-      return enhanceProductWithDetails(product, fullProduct);
-    } else {
-      return enhanceBasicProduct(product);
-    }
-
-  } catch (error) {
-    console.warn(`⚠️ Fallback para produto ${product.item_id}:`, error.message);
-    return enhanceBasicProduct(product);
-  }
-}
-
-function enhanceBasicProduct(product) {
-  // Melhorar dados básicos com informações inteligentes
-  return {
-    ...product,
-    item_name: product.item_name || `Produto ${product.item_id}`,
-    performance_data: extractAndComputePerformanceData(product, false), // Passa false pois é produto básico
-    enhanced_from: 'basic'
-  };
-}
-
-function enhanceProductWithDetails(basicProduct, fullProduct) {
-  // Sobrescrever os campos básicos com os detalhes completos
-  return {
-    ...basicProduct,
-    ...fullProduct,
-    performance_data: extractAndComputePerformanceData(fullProduct, true), // Passa true pois são detalhes completos
-    enhanced_from: 'full'
-  };
-}
-
-// ========================================
-// FUNÇÃO PARA EXTRAIR E CALCULAR DADOS DE PERFORMANCE REAIS
-// ========================================
-function extractAndComputePerformanceData(productData, isFullDetails = false) {
-  // Extrair dados reais da Shopee ou usar valores padrão/N/A se não existirem
-  const rating = productData.rating_star !== undefined ? parseFloat(productData.rating_star).toFixed(1) : '0.0';
-  const ratingCount = productData.rating_count !== undefined ? parseInt(productData.rating_count) : 0;
-  const soldCount = productData.sales !== undefined ? parseInt(productData.sales) : 0;
-  // A Shopee API não costuma fornecer 'views' diretamente no /product-details.
-  // Vamos assumir 0 se não estiver presente. Se sua API interna fornecer, ajuste aqui.
-  const viewCount = productData.views !== undefined ? parseInt(productData.views) : 0;
-
-  // Calcular um performance score baseado nos dados reais (exemplo de cálculo)
-  let performanceScore = 0;
-  if (soldCount > 0 && parseFloat(rating) > 0) {
-    // Escala de 0 a 100: 50% de vendas, 50% de avaliação
-    performanceScore = Math.min(100, Math.round((soldCount / 10000 * 50) + (parseFloat(rating) / 5 * 50)));
-  } else if (soldCount > 0) {
-    performanceScore = Math.min(100, Math.round(soldCount / 10000 * 100)); // Apenas vendas
-  } else if (parseFloat(rating) > 0) {
-    performanceScore = Math.min(100, Math.round(parseFloat(rating) / 5 * 100)); // Apenas avaliação
-  }
-
-  const daysActive = productData.update_time && productData.create_time ?
-    Math.floor((productData.update_time - productData.create_time) / (24 * 60 * 60)) : 0;
-
-  return {
-    rating: rating,
-    rating_count: ratingCount,
-    sold_count: soldCount,
-    view_count: viewCount,
-    performance_score: performanceScore,
-    days_active: daysActive,
-    conversion_rate: 'N/A', // Não temos dados para calcular isso ainda
-    data_quality: isFullDetails ? 'high' : 'basic' // 'basic' se veio da lista, 'high' se veio dos detalhes completos
-  };
-}
-
-// ========================================
-// SISTEMA DE CACHE LOCAL
-// ========================================
-function getFromCache(key) {
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-
-    const { data, timestamp, expiry } = JSON.parse(cached);
-
-    if (Date.now() - timestamp > expiry) {
-      localStorage.removeItem(key);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.warn('Erro ao ler cache:', error);
-    return null;
-  }
-}
-
-function saveToCache(key, data, expiry) {
-  try {
-    const cacheData = {
-      data: data,
-      timestamp: Date.now(),
-      expiry: expiry
-    };
-
-    localStorage.setItem(key, JSON.stringify(cacheData));
-    console.log(`💾 Cache salvo: ${data.length} produtos`);
-  } catch (error) {
-    console.warn('Erro ao salvar cache:', error);
-  }
-}
-
-function clearProductsCache() {
-  localStorage.removeItem('shopee_products_cache');
-  showNotification('Cache limpo! Próximo carregamento buscará dados atualizados.', 'info');
-}
 
 // ========================================
 // INTERFACE DE PROGRESSO OTIMIZADA
 // ========================================
+// Esta função é agora updateRealDataProgress, renomeada para ser mais descritiva.
+// Mantenho updateOptimizedProgress para compatibilidade caso haja alguma chamada antiga.
 function updateOptimizedProgress(current, total, message) {
-  const container = document.getElementById('products-table');
-  if (container && container.querySelector('.loading-container')) {
-    const percentage = Math.round((current / total) * 100);
-    container.innerHTML = `
-      <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>⚡ ${message}</p>
-        <div class="loading-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${percentage}%"></div>
-          </div>
-          <small>${current} de ${total} lotes processados (${percentage}%)</small>
-          <div class="optimization-tips">
-            <span class="tip">💡 Processamento otimizado em lotes</span>
-            <span class="tip">💾 Cache local ativo</span>
-            <span class="tip">⚡ Timeout inteligente</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  updateRealDataProgress(current, total, message);
 }
 
-async function loadProductsDetails(basicProducts) {
-  const productsWithDetails = [];
-  const totalProducts = basicProducts.length;
-
-  // Mostrar progresso
-  updateLoadingProgress(0, totalProducts);
-
-  for (let i = 0; i < basicProducts.length; i++) {
-    const product = basicProducts[i];
-
-    try {
-      // Buscar detalhes completos do produto
-      const detailsResponse = await fetch(`/api/my-shopee/product-details/${product.item_id}`);
-      const detailsData = await detailsResponse.json();
-
-      if (detailsData.success && detailsData.details.response?.item_list?.[0]) {
-        const fullProduct = detailsData.details.response.item_list[0];
-
-        // Combinar dados básicos com detalhes completos
-        const enhancedProduct = {
-          ...product,
-          ...fullProduct,
-          // Dados de performance (simulados baseados em dados reais quando disponíveis)
-          performance_data: generatePerformanceData(fullProduct)
-        };
-
-        productsWithDetails.push(enhancedProduct);
-      } else {
-        // Se não conseguir detalhes, usar dados básicos
-        productsWithDetails.push({
-          ...product,
-          performance_data: generatePerformanceData(product)
-        });
-      }
-
-      // Atualizar progresso
-      updateLoadingProgress(i + 1, totalProducts);
-
-      // Pequeno delay para não sobrecarregar a API
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-    } catch (error) {
-      console.warn(`Erro ao carregar detalhes do produto ${product.item_id}:`, error);
-      // Usar dados básicos se houver erro
-      productsWithDetails.push({
-        ...product,
-        performance_data: generatePerformanceData(product)
-      });
-    }
-  }
-
-  return productsWithDetails;
-}
-
-function generatePerformanceData(product) {
-  // Gerar dados de performance baseados em dados reais quando disponíveis
-  const baseScore = Math.random() * 40 + 60; // 60-100
-  const daysActive = product.update_time ?
-    Math.floor((Date.now() / 1000 - product.update_time) / (24 * 60 * 60)) : 30;
-
-  return {
-    rating: (Math.random() * 2 + 3).toFixed(1), // 3.0 - 5.0
-    rating_count: Math.floor(Math.random() * 500) + 10,
-    sold_count: Math.floor(Math.random() * 1000) + Math.floor(baseScore * 2),
-    view_count: Math.floor(Math.random() * 5000) + Math.floor(baseScore * 50),
-    performance_score: Math.round(baseScore),
-    days_active: daysActive,
-    conversion_rate: (Math.random() * 5 + 1).toFixed(1) + '%'
-  };
-}
-
-function updateLoadingProgress(current, total) {
-  const container = document.getElementById('products-table');
-  if (container && container.querySelector('.loading-container')) {
-    const percentage = Math.round((current / total) * 100);
-    container.innerHTML = `
-      <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>🔄 Carregando detalhes dos produtos...</p>
-        <div class="loading-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${percentage}%"></div>
-          </div>
-          <small>${current} de ${total} produtos (${percentage}%)</small>
-        </div>
-      </div>
-    `;
-  }
-}
-
+// ========================================
+// FUNÇÃO displayProductsInDashboard
+// ========================================
 function displayProductsInDashboard(data) {
   const container = document.getElementById('products-table');
   if (!container) return;
@@ -1191,6 +1067,9 @@ function displayProductsInDashboard(data) {
         </button>
         <button class="btn btn-success" onclick="exportProductsList()">
           <i class="fas fa-download"></i> Exportar
+        </button>
+        <button class="btn btn-secondary" onclick="clearProductsCache()">
+          <i class="fas fa-broom"></i> Limpar Cache
         </button>
       </div>
     </div>
@@ -1260,159 +1139,317 @@ function displayProductsInDashboard(data) {
 }
 
 // ========================================
-// FUNÇÃO createProductCard - VERSÃO CORRIGIDA COM DADOS REAIS
+// FUNÇÕES AUXILIARES PARA PRODUTOS
+// ========================================
+
+// Função para determinar classe de estoque
+function getStockClass(stock) {
+  if (!stock || stock === 0) return 'out-of-stock';
+  if (stock <= 10) return 'low-stock';
+  if (stock <= 50) return 'medium-stock';
+  return 'high-stock';
+}
+
+// Função para formatar preço
+function formatPrice(price) {
+  if (!price || price === 0) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(price);
+}
+
+// Função para obter texto de estoque
+function getStockText(stock) {
+  if (!stock || stock === 0) return 'Sem estoque';
+  if (stock <= 10) return `${stock} unidades (Baixo)`;
+  if (stock <= 50) return `${stock} unidades (Médio)`;
+  return `${stock} unidades (Alto)`;
+}
+
+// Função para formatar status do produto
+function formatProductStatus(status) {
+  const statusMap = {
+    'NORMAL': 'Ativo',
+    'BANNED': 'Banido',
+    'DELETED': 'Deletado',
+    'UNLIST': 'Não listado'
+  };
+  return statusMap[status] || status || 'Desconhecido';
+}
+
+// Função para gerar URL da imagem do produto
+function getProductImageUrl(item) {
+  // Se o produto tem imagens, usar a primeira
+  if (item.images && item.images.length > 0) {
+    return item.images[0].startsWith('http') ? item.images[0] : `https://cf.shopee.com.br/file/${item.images[0]}`;
+  }
+
+  // Fallback para imagem padrão
+  return 'https://via.placeholder.com/200x200?text=Sem+Imagem';
+}
+
+// Função para extrair dados do produto da Shopee (agora mais um helper)
+function extractProductData(item) {
+  return {
+    item_id: item.item_id || 0,
+    item_name: item.item_name || 'Produto sem nome',
+    item_sku: item.item_sku || '',
+    create_time: item.create_time || 0,
+    update_time: item.update_time || 0,
+    item_status: item.item_status || 'NORMAL',
+    has_model: item.has_model || false,
+    price_info: item.price_info || [],
+    stock_info: item.stock_info || [],
+    images: item.images || [],
+    weight: item.weight || 0,
+    dimension: item.dimension || {},
+    logistic_info: item.logistic_info || [],
+    pre_order: item.pre_order || {},
+    condition: item.condition || 'NEW',
+    size_chart: item.size_chart || '',
+    item_dangerous: item.item_dangerous || 0,
+    complaint_policy: item.complaint_policy || {},
+    tax_info: item.tax_info || {},
+    brand: item.brand || {},
+    item_category: item.item_category || {}
+  };
+}
+
+// ========================================
+// FUNÇÃO createProductCard - VERSÃO ULTRA SIMPLES
 // ========================================
 function createProductCard(product) {
-  // Calcular preços reais
-  const currentPrice = product.current_price || product.price_info?.current_price || 0;
-  const originalPrice = product.original_price || product.price_info?.original_price || 0;
+  const itemId = product.item_id || 0;
+  const itemName = product.item_name || `Produto ${itemId}`;
+  const itemSku = product.item_sku || '';
+  const itemStatus = product.item_status || 'UNKNOWN';
 
-  // Formatar preços
-  const formatPrice = (price) => {
-    if (!price || price === 0) return 'Não definido';
-    return `R$ ${(price / 100000).toFixed(2).replace('.', ',')}`;
-  };
+  // PREÇOS (já em reais)
+  const priceInfo = product.price_info?.[0] || {};
+  const currentPrice = priceInfo.current_price || 0;
+  const originalPrice = priceInfo.original_price || currentPrice;
 
-  const priceDisplay = currentPrice > 0 ? formatPrice(currentPrice) : 'Preço não definido';
-  const originalPriceDisplay = originalPrice > 0 && originalPrice !== currentPrice ? formatPrice(originalPrice) : null;
+  // ESTOQUE
+  const stockInfo = product.stock_info_v2?.summary_info || {};
+  const totalStock = stockInfo.total_available_stock || 0;
 
-  // Dados de vendas reais
-  const totalSales = product.total_sales || product.sales_info?.total_sales || 0;
-  const monthlySales = product.monthly_sales || product.sales_info?.monthly_sales || 0;
-  const totalViews = product.total_views || product.sales_info?.total_views || 0;
-  const monthlyViews = product.monthly_views || product.sales_info?.monthly_views || 0;
+  // IMAGEM
+  const images = product.images || product.image?.image_url_list || [];
+  const imageUrl = images.length > 0 ?
+    (images[0].startsWith('http') ? images[0] : `https://cf.shopee.com.br/file/${images[0]}`) : null;
 
-  // Calcular desconto se houver
-  const discountPercent = originalPrice > 0 && currentPrice > 0 && originalPrice > currentPrice
-    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-    : 0;
+  // MÉTRICAS (usar o que vier da API, sem inventar nada)
+  const sales = product.sales || product.historical_sold || 0;
+  const views = product.view_count || 0;
+  const rating = product.item_rating?.rating_star || product.rating_star || 0;
+  const ratingCount = product.item_rating?.rating_count || product.rating_count || 0;
+
+  // DATAS
+  const createTime = product.create_time || 0;
+  const updateTime = product.update_time || 0;
+  const weight = product.weight || 0;
+
+  // DESCONTO
+  const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
+  const discountPercent = hasDiscount ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
 
   return `
-    <div class="product-card-enhanced">
-      ${product.image?.image_url_list?.[0] ? `
+    <div class="product-card-enhanced" data-product-id="${itemId}">
+
+      <!-- IMAGEM -->
+      ${imageUrl ? `
         <div class="product-image-section">
-          <img src="${product.image.image_url_list[0]}" alt="${product.item_name || 'Produto'}" class="product-image" loading="lazy">
+          <img src="${imageUrl}" alt="${itemName}" class="product-image" loading="lazy" onerror="this.src='https://via.placeholder.com/200x200?text=Sem+Imagem'">
           <div class="product-overlay">
-            <button class="btn-image-zoom" onclick="viewProductDetails(${product.item_id})">
+            <button class="btn-image-zoom" onclick="viewProductDetails(${itemId})" title="Ver detalhes">
               <i class="fas fa-search-plus"></i>
             </button>
           </div>
         </div>
-      ` : ''}
+      ` : `
+        <div class="product-image-section no-image">
+          <div class="no-image-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Sem Imagem</span>
+          </div>
+        </div>
+      `}
 
+      <!-- HEADER -->
       <div class="product-header">
         <div class="product-id-section">
           <span class="product-id-badge">
-            <i class="fas fa-hashtag"></i> ${product.item_id}
+            <i class="fas fa-hashtag"></i> ${itemId}
           </span>
-          <span class="product-status-badge status-${(product.item_status || 'unknown').toLowerCase()}">
-            ${product.item_status || 'Desconhecido'}
+          <span class="product-status-badge ${getStatusClass(itemStatus)}">
+            ${formatProductStatus(itemStatus)}
           </span>
-          ${product.is_2tier_item ? '<span class="kit-indicator">KIT</span>' : ''}
+          ${itemSku ? `<span class="product-sku">SKU: ${itemSku}</span>` : ''}
         </div>
       </div>
 
+      <!-- CORPO -->
       <div class="product-body">
+        <!-- NOME -->
         <div class="product-name-section">
-          <h4 class="product-real-name">${product.item_name || 'Nome não disponível'}</h4>
-          ${product.item_sku ? `<span class="product-sku">SKU: ${product.item_sku}</span>` : ''}
+          <h4 class="product-real-name" title="${itemName}">${itemName}</h4>
         </div>
 
+        <!-- PREÇOS -->
         <div class="product-price-section ${currentPrice > 0 ? '' : 'no-price'}">
           ${currentPrice > 0 ? `
-            <div class="current-price">${priceDisplay}</div>
-            ${originalPriceDisplay ? `<div class="original-price">${originalPriceDisplay}</div>` : ''}
-            ${discountPercent > 0 ? `<span class="discount-badge">-${discountPercent}%</span>` : ''}
+            <div class="current-price">${formatCurrency(currentPrice)}</div>
+            ${hasDiscount ? `
+              <div class="original-price">${formatCurrency(originalPrice)}</div>
+              <div class="discount-badge">-${discountPercent}%</div>
+            ` : ''}
           ` : `
             <div class="no-price-text">Preço não definido</div>
           `}
         </div>
 
-        <div class="product-stock-section">
-          <span class="stock-label">Estoque:</span>
-          <span class="stock-value ${getStockClass(product.stock_info?.[0]?.current_stock || 0)}">
-            ${product.stock_info?.[0]?.current_stock || 0} unidades
-          </span>
-        </div>
-
-        <!-- NOVA SEÇÃO: VENDAS E VISUALIZAÇÕES REAIS -->
+        <!-- MÉTRICAS -->
         <div class="product-sales-section">
           <div class="sales-grid">
             <div class="sales-item">
               <i class="fas fa-shopping-cart"></i>
               <div class="sales-info">
-                <span class="sales-label">Vendas Totais</span>
-                <span class="sales-value">${totalSales.toLocaleString()}</span>
+                <div class="sales-label">Vendas</div>
+                <div class="sales-value">${sales}</div>
               </div>
             </div>
             <div class="sales-item">
-              <i class="fas fa-calendar-month"></i>
+              <i class="fas fa-star"></i>
               <div class="sales-info">
-                <span class="sales-label">Vendas/Mês</span>
-                <span class="sales-value">${monthlySales.toLocaleString()}</span>
+                <div class="sales-label">Avaliação</div>
+                <div class="sales-value">${rating > 0 ? rating.toFixed(1) : '0.0'}</div>
               </div>
             </div>
             <div class="sales-item">
               <i class="fas fa-eye"></i>
               <div class="sales-info">
-                <span class="sales-label">Visualizações</span>
-                <span class="sales-value">${totalViews.toLocaleString()}</span>
+                <div class="sales-label">Views</div>
+                <div class="sales-value">${views}</div>
               </div>
             </div>
             <div class="sales-item">
-              <i class="fas fa-chart-line"></i>
+              <i class="fas fa-boxes"></i>
               <div class="sales-info">
-                <span class="sales-label">Views/Mês</span>
-                <span class="sales-value">${monthlyViews.toLocaleString()}</span>
+                <div class="sales-label">Estoque</div>
+                <div class="sales-value ${getStockValueClass(totalStock)}">${totalStock}</div>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- INFORMAÇÕES -->
         <div class="product-info-section">
           <div class="info-row">
             <span class="info-label">Criado:</span>
-            <span class="info-value">${formatDate(product.create_time)}</span>
+            <span class="info-value">${formatDate(createTime)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Atualizado:</span>
-            <span class="info-value">${formatDate(product.update_time)}</span>
+            <span class="info-value">${formatDate(updateTime)}</span>
           </div>
-          <div class="info-row">
-            <span class="info-label">Peso:</span>
-            <span class="info-value">${product.weight ? `${product.weight}g` : 'N/A'}</span>
-          </div>
+          ${weight > 0 ? `
+            <div class="info-row">
+              <span class="info-label">Peso:</span>
+              <span class="info-value">${weight} kg</span>
+            </div>
+          ` : ''}
         </div>
       </div>
 
+      <!-- AÇÕES -->
       <div class="product-actions-footer">
-        <button class="btn btn-info btn-small" onclick="viewProductDetails(${product.item_id})">
-          <i class="fas fa-eye"></i> Ver
+        <button class="btn btn-primary btn-small" onclick="viewProductDetails(${itemId})" title="Ver detalhes">
+          <i class="fas fa-eye"></i> Detalhes
         </button>
-        <button class="btn btn-warning btn-small" onclick="editProduct(${product.item_id})">
+        <button class="btn btn-success btn-small" onclick="analyzeProduct(${itemId})" title="Analisar">
+          <i class="fas fa-chart-line"></i> Analisar
+        </button>
+        <button class="btn btn-info btn-small" onclick="editProduct(${itemId})" title="Editar">
           <i class="fas fa-edit"></i> Editar
         </button>
-        <button class="btn btn-success btn-small" onclick="analyzeProduct(${product.item_id})">
-          <i class="fas fa-chart-bar"></i> Análise
-        </button>
       </div>
+
     </div>
   `;
 }
 
+
+
+// Função auxiliar para classe de estoque
+function getStockValueClass(stock) {
+  if (stock === 0) return 'unknown';
+  if (stock <= 5) return 'low';
+  if (stock <= 20) return 'medium';
+  return 'high';
+}
+
 // ========================================
-// FUNÇÕES AUXILIARES PARA PRODUTOS
+// FUNÇÕES AUXILIARES FALTANTES / SIMPLIFICADAS
+// ========================================
+
+// Estas funções eram para extrair dados específicos, mas já são feitas no createProductCard
+// Removemos para evitar redundância e simplificar.
+/*
+function extractSalesData(product) { /* REMOVIDA */ /* }
+function extractRatingData(product) { /* REMOVIDA */ /* }
+function extractPriceData(product) { /* REMOVIDA */ /* }
+*/
+
+
+function clearOrderFilters() {
+  const searchInput = document.getElementById('orders-search');
+  const statusFilter = document.getElementById('orders-status-filter');
+  const daysFilter = document.getElementById('days-filter');
+
+  if (searchInput) searchInput.value = '';
+  if (statusFilter) statusFilter.value = 'ALL';
+  if (daysFilter) daysFilter.value = '30';
+
+  loadOrders(0, 'ALL', 30);
+  showNotification('Filtros limpos!', 'success');
+}
+
+function filterOrdersInDashboard() {
+  const searchInput = document.getElementById('orders-search');
+  if (!searchInput) return;
+
+  const searchTerm = searchInput.value.toLowerCase();
+  const orderCards = document.querySelectorAll('.order-card-enhanced');
+
+  let visibleCount = 0;
+
+  orderCards.forEach(card => {
+    const orderSn = card.getAttribute('data-order-sn');
+    const isVisible = !searchTerm || (orderSn && orderSn.toLowerCase().includes(searchTerm)); // Verifica se orderSn existe
+    if (card) { // Verifica se card existe
+        card.style.display = isVisible ? 'block' : 'none';
+        if (isVisible) visibleCount++;
+    }
+  });
+
+  // Atualizar contador
+  const countElement = document.querySelector('.pagination-info');
+  if (countElement && searchTerm) {
+    countElement.textContent = `${visibleCount} pedidos encontrados`;
+  }
+}
+
+// ========================================
+// FUNÇÕES AUXILIARES PARA PRODUTOS (Gerais)
 // ========================================
 function editProduct(productId) {
   showNotification('Funcionalidade de edição em desenvolvimento', 'info');
   console.log('Editar produto:', productId);
 }
 
-function duplicateProduct(productId) {
-  showNotification('Funcionalidade de duplicação em desenvolvimento', 'info');
-  console.log('Duplicar produto:', productId);
-}
-
+// loadProductsPage já está integrado na nova lógica de paginação de loadProducts
+/*
 async function loadProductsPage(page) {
   try {
     showLoading('products-grid');
@@ -1429,6 +1466,7 @@ async function loadProductsPage(page) {
     showNotification('Erro ao carregar página', 'error');
   }
 }
+*/
 
 // ========================================
 // FUNÇÕES DE FILTRO E ORDENAÇÃO DE PRODUTOS (FUNCIONAIS)
@@ -1438,7 +1476,7 @@ function filterProductsInDashboard() {
   if (!window.originalProductsData) return;
 
   const searchInput = document.getElementById('product-search');
-  const statusFilter = document.getElementById('products-status-filter'); // ID corrigido
+  const statusFilter = document.getElementById('products-status-filter');
 
   const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
   const statusFilterValue = statusFilter ? statusFilter.value : '';
@@ -1477,7 +1515,7 @@ function filterProductsInDashboard() {
 function sortProductsInDashboard() {
   if (!window.filteredProductsData) return;
 
-  const sortFilter = document.getElementById('products-sort-filter'); // ID corrigido
+  const sortFilter = document.getElementById('products-sort-filter');
   const sortValue = sortFilter ? sortFilter.value : 'id-asc';
 
   const sorted = sortProductsArray([...window.filteredProductsData], sortValue);
@@ -1504,8 +1542,8 @@ function sortProductsInDashboard() {
 
 function clearProductFilters() {
   const searchInput = document.getElementById('product-search');
-  const statusFilter = document.getElementById('products-status-filter'); // ID corrigido
-  const sortFilter = document.getElementById('products-sort-filter'); // ID corrigido
+  const statusFilter = document.getElementById('products-status-filter');
+  const sortFilter = document.getElementById('products-sort-filter');
 
   if (searchInput) searchInput.value = '';
   if (statusFilter) statusFilter.value = '';
@@ -1539,8 +1577,8 @@ function sortProductsArray(products, sortValue) {
         valueB = b.update_time || 0;
         break;
       case 'price':
-        valueA = a.price_info?.[0]?.current_price || 0;
-        valueB = b.price_info?.[0]?.current_price || 0;
+        valueA = (a.price_info?.[0]?.current_price || 0);
+        valueB = (b.price_info?.[0]?.current_price || 0);
         break;
       case 'stock':
         valueA = a.stock_info_v2?.summary_info?.total_available_stock || 0;
@@ -1603,6 +1641,8 @@ function updateFilterStatus(filterStatus, count) {
   }
 }
 
+// clearProductFilters (duplicada, mantida a versão funcional no topo)
+/*
 function clearProductFilters() {
   // Limpar campos de filtro
   const searchInput = document.getElementById('product-search');
@@ -1622,6 +1662,7 @@ function clearProductFilters() {
 
   showNotification('Filtros limpos!', 'success');
 }
+*/
 
 function exportProductsList() {
   const visibleCards = Array.from(document.querySelectorAll('.product-card-enhanced:not([style*="display: none"])'));
@@ -1638,21 +1679,35 @@ function exportProductsList() {
 }
 
 function convertProductsToCSV(products) {
-  const headers = ['ID', 'Nome', 'Status', 'SKU', 'Categoria', 'Marca', 'Peso', 'Criado', 'Atualizado'];
-  const rows = products.map(product => [
-    product.item_id,
-    product.item_name || '',
-    product.item_status || '',
-    product.item_sku || '',
-    product.category_id || '',
-    product.brand?.original_brand_name || '',
-    product.weight || 0,
-    formatProductDate(product.create_time),
-    formatProductDate(product.update_time)
-  ]);
+  const headers = ['ID', 'Nome', 'Status', 'SKU', 'Preço Atual (R$)', 'Estoque', 'Vendas', 'Avaliação (0-5)', 'Nº Avaliações', 'Views', 'Peso (kg)', 'Criado em', 'Atualizado em'];
+  const rows = products.map(product => {
+    const currentPrice = (product.price_info?.[0]?.current_price || 0) / 100;
+    const totalStock = product.stock_info_v2?.summary_info?.total_available_stock || 0;
+    const sales = product.sales || 0;
+    const rating = product.item_rating?.rating_star || 0;
+    const ratingCount = product.item_rating?.rating_count || 0;
+    const views = product.view_count || 0;
+    const weight = product.weight || 0;
+
+    return [
+      product.item_id,
+      product.item_name || '',
+      product.item_status || '',
+      product.item_sku || '',
+      currentPrice.toFixed(2),
+      totalStock,
+      sales,
+      rating.toFixed(1),
+      ratingCount,
+      views,
+      weight,
+      formatProductDate(product.create_time),
+      formatProductDate(product.update_time)
+    ];
+  });
 
   const csvContent = [headers, ...rows]
-    .map(row => row.map(field => `"${field}"`).join(','))
+    .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
   return csvContent;
@@ -1674,11 +1729,16 @@ async function viewProductDetails(itemId) {
     const data = await response.json();
 
     if (data.success && data.details.response?.item_list?.[0]) {
+      // Pega o produto da lista original para ter o price_info
+      const basicProduct = window.originalProductsData.find(p => p.item_id === itemId) || {};
+      // Combina o basicProduct com o realProduct para ter todas as infos
+      const combinedProduct = { ...basicProduct, ...data.details.response.item_list[0] };
+
       showNotification('Detalhes carregados com sucesso!', 'success');
       // Atualiza o modal com os detalhes do produto
       showProductModal({
         loading: false,
-        product: data.details.response.item_list[0]
+        product: combinedProduct
       });
     } else {
       throw new Error('Produto não encontrado');
@@ -1704,16 +1764,14 @@ async function analyzeProduct(itemId) {
       itemId: itemId
     });
 
-    // Buscar dados do produto
-    const productResponse = await fetch(`/api/my-shopee/product-details/${itemId}`);
-    const productData = await productResponse.json();
+    // Buscar dados do produto (usando o produto enriquecido que já está no front)
+    const product = window.originalProductsData.find(p => p.item_id === itemId);
 
-    if (!productData.success) {
-      throw new Error('Erro ao carregar dados do produto');
+    if (!product) {
+      throw new Error('Produto não encontrado para análise.');
     }
 
-    const product = productData.details.response.item_list[0];
-    const price = product.price_info?.[0]?.current_price || 0;
+    const price = (product.price_info?.[0]?.current_price || 0) / 100; // Preço já convertido
     const productName = product.item_name || 'produto';
 
     // Tentar buscar análise real da API
@@ -1818,22 +1876,6 @@ function showNotification(message, type = 'info') {
     </div>
   `;
 
-  // Estes estilos são os que estavam no JS, movidos para o CSS
-  // notification.style.cssText = `
-  //   position: fixed;
-  //   top: 20px;
-  //   right: 20px;
-  //   background: ${type === 'success' ? '#48bb78' : type === 'error' ? '#e53e3e' : '#ed8936'};
-  //   color: white;
-  //   padding: 15px 20px;
-  //   border-radius: 8px;
-  //   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  //   z-index: 10000;
-  //   font-weight: 500;
-  //   max-width: 400px;
-  //   animation: slideInRight 0.3s ease;
-  // `;
-
   document.body.appendChild(notification);
 
   setTimeout(() => {
@@ -1859,30 +1901,8 @@ function syncProducts() {
   showNotification('Sincronização iniciada!', 'success');
 }
 
-// Funções openProductModal, closeProductModal e saveProduct serão removidas
-// conforme o ponto 5 da sua lista (remoção da funcionalidade de "novo produto")
-// function openProductModal() {
-//   const modal = document.getElementById('product-modal');
-//   if (modal) modal.style.display = 'block';
-// }
-
-// function closeProductModal() {
-//   const modal = document.getElementById('product-modal');
-//   if (modal) modal.style.display = 'none';
-// }
-
-// function saveProduct(event) {
-//   event.preventDefault();
-//   showNotification('Produto salvo com sucesso!', 'success');
-//   closeProductModal();
-// }
-
 function refreshAlerts() {
   showNotification('Alertas atualizados!', 'success');
-}
-
-function checkShopeeStatus() {
-  showNotification('Verificando status Shopee...', 'info');
 }
 
 function openProductsFullView() {
@@ -1901,8 +1921,6 @@ function showProductModal(data) {
   const modal = document.createElement('div');
   modal.id = 'product-details-modal';
   modal.className = 'product-modal-overlay';
-  // Sem estilos inline aqui, tudo vem do CSS
-  // modal.style.cssText = `...`;
 
   if (data.loading) {
     modal.innerHTML = createLoadingModal(data.itemId);
@@ -1970,11 +1988,15 @@ function createErrorModal(error, itemId) {
 }
 
 function createCompleteProductModal(product) {
-  const images = product.image?.image_url_list || [];
+  const images = product.images || product.image?.image_url_list || [];
   const price = product.price_info?.[0] || {};
   const stock = product.stock_info_v2?.summary_info || {};
   const attributes = product.attribute_list || [];
   const logistics = product.logistic_info || [];
+
+  // Convertendo preços para R$
+const currentPriceModal = price.current_price !== undefined && price.current_price !== null ? price.current_price : 0;
+const originalPriceModal = price.original_price !== undefined && price.original_price !== null ? price.original_price : currentPriceModal;
 
   return `
     <div class="product-modal">
@@ -1992,7 +2014,7 @@ function createCompleteProductModal(product) {
             <div class="image-gallery">
               ${images.length > 0 ? images.map((img, index) => `
                 <div class="image-item">
-                  <img src="${img}" alt="Produto ${index + 1}" onclick="openImageFullscreen('${img}')" loading="lazy">
+                  <img src="${img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`}" alt="Produto ${index + 1}" onclick="openImageFullscreen('${img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`}')" loading="lazy">
                 </div>
               `).join('') : '<p class="no-images">📷 Nenhuma imagem disponível</p>'}
             </div>
@@ -2045,12 +2067,12 @@ function createCompleteProductModal(product) {
             <div class="pricing-grid">
               <div class="price-card current-price">
                 <label>Preço Atual</label>
-                <span class="price-value">R$ ${price.current_price?.toFixed(2) || '0,00'}</span>
+                <span class="price-value">${formatCurrency(currentPriceModal)}</span>
               </div>
               <div class="price-card original-price">
                 <label>Preço Original</label>
-                <span class="price-value ${price.original_price !== price.current_price ? 'crossed' : ''}">
-                  R$ ${price.original_price?.toFixed(2) || '0,00'}
+                <span class="price-value ${originalPriceModal !== currentPriceModal ? 'crossed' : ''}">
+                  ${formatCurrency(originalPriceModal)}
                 </span>
               </div>
               <div class="stock-card available">
@@ -2180,8 +2202,6 @@ function openImageFullscreen(imageUrl) {
       <button class="fullscreen-close" onclick="this.parentElement.parentElement.remove()">&times;</button>
     </div>
   `;
-  // Sem estilos inline aqui, tudo vem do CSS
-  // fullscreenModal.style.cssText = `...`;
 
   fullscreenModal.addEventListener('click', function(e) {
     if (e.target === fullscreenModal) {
@@ -2204,8 +2224,6 @@ function showAnalysisModal(data) {
   const modal = document.createElement('div');
   modal.id = 'analysis-modal';
   modal.className = 'analysis-modal-overlay';
-  // Sem estilos inline aqui, tudo vem do CSS
-  // modal.style.cssText = `...`;
 
   if (data.loading) {
     modal.innerHTML = createAnalysisLoadingModal(data.itemId);
@@ -2280,85 +2298,36 @@ function createAnalysisErrorModal(error, itemId) {
 }
 
 function createCompleteAnalysisModal(product, analysis) {
-  const price = product.price_info?.[0]?.current_price || 0;
+  // Converte o preço do produto para R$
+  const productPrice = (product.price_info?.[0]?.current_price || 0) / 100;
 
-  // Simular dados de análise completa
-  const mockAnalysis = {
-    category: 'Móveis e Decoração',
+  // Usa a análise real se disponível, senão mocka
+  const finalAnalysis = analysis.category_benchmarks ? analysis.category_benchmarks[Object.keys(analysis.category_benchmarks)[0]] : null;
+  const categoryData = finalAnalysis || {
     category_overview: {
       total_products: 1247,
       price_range: {
-        min: price * 0.3,
-        max: price * 2.5,
-        avg: price * 1.2,
-        median: price * 1.1
+        min: productPrice * 0.3,
+        max: productPrice * 2.5,
+        avg: productPrice * 1.2,
+        median: productPrice * 1.1
       }
     },
-    top_performers: [
-      {
-        name: 'Concorrente Premium A',
-        price: price * 1.8,
-        sold_count: 2847,
-        rating: 4.8,
-        performance_score: 95
-      },
-      {
-        name: 'Concorrente Médio B',
-        price: price * 1.3,
-        sold_count: 1923,
-        rating: 4.5,
-        performance_score: 87
-      },
-      {
-        name: 'Concorrente Econômico C',
-        price: price * 0.7,
-        sold_count: 3421,
-        rating: 4.2,
-        performance_score: 82
-      },
-      {
-        name: 'Concorrente Similar D',
-        price: price * 1.1,
-        sold_count: 1654,
-        rating: 4.6,
-        performance_score: 79
-      },
-      {
-        name: 'Concorrente Novo E',
-        price: price * 0.9,
-        sold_count: 987,
-        rating: 4.3,
-        performance_score: 74
-      }
-    ],
+    competitive_analysis: {
+      top_performers: [
+        { name: 'Concorrente Premium A', price: productPrice * 1.8, sold_count: 2847, rating: 4.8, performance_score: 95 },
+        { name: 'Concorrente Médio B', price: productPrice * 1.3, sold_count: 1923, rating: 4.5, performance_score: 87 },
+        { name: 'Concorrente Econômico C', price: productPrice * 0.7, sold_count: 3421, rating: 4.2, performance_score: 82 },
+      ]
+    },
     recommendations: [
-      {
-        priority: 'alta',
-        title: 'Ajuste de Preço Estratégico',
-        description: 'Seu produto está posicionado acima da média do mercado. Considere um ajuste para melhor competitividade.',
-        action: 'Reduzir preço em 8-12% ou destacar diferenciais únicos',
-        expected_impact: 'Aumento de 25-35% nas vendas'
-      },
-      {
-        priority: 'media',
-        title: 'Melhoria na Descrição',
-        description: 'Produtos similares com descrições mais detalhadas têm melhor performance.',
-        action: 'Expandir descrição com benefícios e especificações técnicas',
-        expected_impact: 'Melhoria de 15-20% na conversão'
-      },
-      {
-        priority: 'baixa',
-        title: 'Otimização de Imagens',
-        description: 'Concorrentes top utilizam mais imagens e de melhor qualidade.',
-        action: 'Adicionar 2-3 imagens extras mostrando detalhes e uso',
-        expected_impact: 'Redução de 10-15% na taxa de devolução'
-      }
+      { priority: 'alta', title: 'Ajuste de Preço Estratégico', description: 'Seu produto está posicionado acima da média do mercado. Considere um ajuste para melhor competitividade.', action: 'Reduzir preço em 8-12% ou destacar diferenciais únicos', expected_impact: 'Aumento de 25-35% nas vendas' },
+      { priority: 'media', title: 'Melhoria na Descrição', description: 'Produtos similares com descrições mais detalhadas têm melhor performance.', action: 'Expandir descrição com benefícios e especificações técnicas', expected_impact: 'Melhoria de 15-20% na conversão' },
     ]
   };
 
-  const competitors = mockAnalysis.top_performers;
-  const recommendations = mockAnalysis.recommendations;
-  const categoryData = mockAnalysis;
+  const competitors = categoryData.competitive_analysis.top_performers;
+  const recommendations = categoryData.recommendations;
 
   return `
     <div class="analysis-modal">
@@ -2376,20 +2345,20 @@ function createCompleteAnalysisModal(product, analysis) {
             <div class="executive-summary">
               <div class="summary-item">
                 <label>Categoria:</label>
-                <span>${mockAnalysis.category}</span>
+                <span>${finalAnalysis?.category_overview?.data_source === 'real_scraping' ? finalAnalysis.category_overview.data_source : 'Móveis e Decoração'}</span>
               </div>
               <div class="summary-item">
                 <label>Preço do Produto:</label>
-                <span class="price-highlight">R$ ${price.toFixed(2)}</span>
+                <span class="price-highlight">${formatCurrency(productPrice)}</span>
               </div>
               <div class="summary-item">
                 <label>Preço Médio do Mercado:</label>
-                <span>R$ ${categoryData.category_overview.price_range.avg.toFixed(2)}</span>
+                <span>${formatCurrency(categoryData.category_overview.price_range.avg)}</span>
               </div>
               <div class="summary-item">
                 <label>Posicionamento:</label>
-                <span class="positioning ${getPositioning(price, categoryData.category_overview.price_range)}">
-                  ${getPositioningText(price, categoryData.category_overview.price_range)}
+                <span class="positioning ${getPositioning(productPrice, categoryData.category_overview.price_range)}">
+                  ${getPositioningText(productPrice, categoryData.category_overview.price_range)}
                 </span>
               </div>
               <div class="summary-item">
@@ -2406,24 +2375,24 @@ function createCompleteAnalysisModal(product, analysis) {
               <div class="price-comparison">
                 <div class="price-bar">
                   <div class="price-range">
-                    <span class="min-price">R$ ${categoryData.category_overview.price_range.min.toFixed(2)}</span>
-                    <span class="max-price">R$ ${categoryData.category_overview.price_range.max.toFixed(2)}</span>
+                    <span class="min-price">${formatCurrency(categoryData.category_overview.price_range.min)}</span>
+                    <span class="max-price">${formatCurrency(categoryData.category_overview.price_range.max)}</span>
                   </div>
-                  <div class="price-indicator" style="left: ${calculatePricePosition(price, categoryData.category_overview.price_range)}%">
-                    <div class="price-marker">R$ ${price.toFixed(2)}</div>
+                  <div class="price-indicator" style="left: ${calculatePricePosition(productPrice, categoryData.category_overview.price_range)}%">
+                    <div class="price-marker">${formatCurrency(productPrice)}</div>
                   </div>
                 </div>
               </div>
               <div class="price-metrics">
                 <div class="metric">
                   <label>Diferença da Média:</label>
-                  <span class="${price > categoryData.category_overview.price_range.avg ? 'above' : 'below'}">
-                    ${price > categoryData.category_overview.price_range.avg ? '+' : ''}${((price - categoryData.category_overview.price_range.avg) / categoryData.category_overview.price_range.avg * 100).toFixed(1)}%
+                  <span class="${productPrice > categoryData.category_overview.price_range.avg ? 'above' : 'below'}">
+                    ${productPrice > categoryData.category_overview.price_range.avg ? '+' : ''}${((productPrice - categoryData.category_overview.price_range.avg) / categoryData.category_overview.price_range.avg * 100).toFixed(1)}%
                   </span>
                 </div>
                 <div class="metric">
                   <label>Mediana do Mercado:</label>
-                  <span>R$ ${categoryData.category_overview.price_range.median.toFixed(2)}</span>
+                  <span>${formatCurrency(categoryData.category_overview.price_range.median)}</span>
                 </div>
               </div>
             </div>
@@ -2441,7 +2410,7 @@ function createCompleteAnalysisModal(product, analysis) {
                   <div class="competitor-info">
                     <div class="competitor-name">${competitor.name}</div>
                     <div class="competitor-details">
-                      <span class="price">R$ ${competitor.price.toFixed(2)}</span>
+                      <span class="price">${formatCurrency(competitor.price)}</span>
                       <span class="sales">${competitor.sold_count} vendas</span>
                       <span class="rating">⭐ ${competitor.rating.toFixed(1)}</span>
                     </div>
@@ -2540,28 +2509,31 @@ function getPositioning(price, priceRange) {
   const avg = priceRange.avg;
   const diff = (price - avg) / avg;
 
-  if (diff > 0.2) return 'premium';
-  if (diff > 0.05) return 'above-average';
-  if (diff < -0.2) return 'budget';
-  if (diff < -0.05) return 'below-average';
+  if (diff > 0.3) return 'premium';
+  if (diff > 0.1) return 'above-average';
+  if (diff < -0.3) return 'budget';
+  if (diff < -0.1) return 'below-average';
   return 'average';
 }
 
 function getPositioningText(price, priceRange) {
   const positioning = getPositioning(price, priceRange);
   const texts = {
-    premium: 'Premium',
-    'above-average': 'Acima da Média',
-    average: 'Média do Mercado',
-    'below-average': 'Abaixo da Média',
-    budget: 'Econômico'
+    premium: 'Premium (30%+ acima da média)',
+    'above-average': 'Acima da Média (10-30% acima)',
+    average: 'Média do Mercado (±10% da média)',
+    'below-average': 'Abaixo da Média (10-30% abaixo)',
+    budget: 'Econômico (30%+ abaixo da média)'
   };
   return texts[positioning];
 }
 
+
 function calculatePricePosition(price, priceRange) {
   const min = priceRange.min;
   const max = priceRange.max;
+  // Previne divisão por zero se min === max
+  if (max === min) return 50;
   return Math.min(100, Math.max(0, ((price - min) / (max - min)) * 100));
 }
 
@@ -2569,441 +2541,82 @@ function exportAnalysis(itemId) {
   showNotification('Gerando relatório de análise...', 'info');
 
   setTimeout(() => {
-    showNotification('Relatório exportado com sucesso!', 'success');
-    console.log('📄 Relatório de análise gerado para produto:', itemId);
-  }, 2000);
-}
+    // Pega o produto do cache local
+    const productData = window.originalProductsData.find(p => p.item_id === itemId);
+    const analysisInfo = benchmarkData?.category_benchmarks?.[Object.keys(benchmarkData.category_benchmarks)[0]] || {}; // Usar dados de benchmark se houver
 
-// ========================================
-// SISTEMA DE EXPORTAÇÃO COM SELEÇÃO DE PERÍODO
-// ========================================
-
-function showExportModal() {
-  const existingModal = document.getElementById('export-modal');
-  if (existingModal) {
-    existingModal.remove();
-  }
-
-  const modal = document.createElement('div');
-  modal.id = 'export-modal';
-  modal.className = 'export-modal-overlay';
-  modal.innerHTML = createExportModal();
-
-  document.body.appendChild(modal);
-
-  // Event listeners para o modal
-  setupExportModalListeners();
-
-  // Fechar modal clicando fora
-  modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-      closeExportModal();
-    }
-  });
-
-  // Fechar com ESC
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      closeExportModal();
-    }
-  });
-}
-
-function createExportModal() {
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
-
-  const todayStr = today.toISOString().split('T')[0];
-  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
-
-  return `
-    <div class="export-modal">
-      <div class="modal-header">
-        <h2><i class="fas fa-download"></i> Exportar Pedidos</h2>
-        <button class="modal-close" onclick="closeExportModal()">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="export-form">
-          <!-- Seleção de Período -->
-          <div class="form-section">
-            <h3><i class="fas fa-calendar-alt"></i> Período de Exportação</h3>
-
-            <div class="period-presets">
-              <button class="preset-btn" onclick="setPresetPeriod(7)">Últimos 7 dias</button>
-              <button class="preset-btn" onclick="setPresetPeriod(15)">Últimos 15 dias</button>
-              <button class="preset-btn active" onclick="setPresetPeriod(30)">Últimos 30 dias</button>
-              <button class="preset-btn" onclick="setPresetPeriod(60)">Últimos 60 dias</button>
-              <button class="preset-btn" onclick="setPresetPeriod(90)">Últimos 90 dias</button>
-            </div>
-
-            <div class="date-range">
-              <div class="date-input-group">
-                <label for="start-date">Data Inicial:</label>
-                <input type="date" id="start-date" value="${thirtyDaysAgoStr}" onchange="validateDateRange()">
-              </div>
-              <div class="date-input-group">
-                <label for="end-date">Data Final:</label>
-                <input type="date" id="end-date" value="${todayStr}" onchange="validateDateRange()">
-              </div>
-            </div>
-
-            <div class="period-info">
-              <span id="period-summary">Período selecionado: 30 dias (${formatDateBR(thirtyDaysAgoStr)} até ${formatDateBR(todayStr)})</span>
-            </div>
-          </div>
-
-          <!-- Filtros de Status -->
-          <div class="form-section">
-            <h3><i class="fas fa-filter"></i> Filtros de Status</h3>
-
-            <div class="status-filters">
-              <label class="status-checkbox">
-                <input type="checkbox" value="ALL" checked onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Todos os Status
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="UNPAID" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Não Pago
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="TO_SHIP" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                A Enviar
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="READY_TO_SHIP" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Pronto para Envio
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="SHIPPED" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Enviado
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="COMPLETED" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Concluído
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="CANCELLED" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Cancelado
-              </label>
-              <label class="status-checkbox">
-                <input type="checkbox" value="RETURNED" onchange="handleStatusFilter(this)">
-                <span class="checkmark"></span>
-                Retornado
-              </label>
-            </div>
-          </div>
-
-          <!-- Formato de Exportação -->
-          <div class="form-section">
-            <h3><i class="fas fa-file-export"></i> Formato de Exportação</h3>
-
-            <div class="export-formats">
-              <label class="format-option">
-                <input type="radio" name="export-format" value="excel" checked>
-                <span class="format-card">
-                  <i class="fas fa-file-excel"></i>
-                  <strong>Excel (.xlsx)</strong>
-                  <small>Planilha com formatação</small>
-                </span>
-              </label>
-              <label class="format-option">
-                <input type="radio" name="export-format" value="csv">
-                <span class="format-card">
-                  <i class="fas fa-file-csv"></i>
-                  <strong>CSV (.csv)</strong>
-                  <small>Dados separados por vírgula</small>
-                </span>
-              </label>
-              <label class="format-option">
-                <input type="radio" name="export-format" value="json">
-                <span class="format-card">
-                  <i class="fas fa-file-code"></i>
-                  <strong>JSON (.json)</strong>
-                  <small>Dados estruturados</small>
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Campos para Exportar -->
-          <div class="form-section">
-            <h3><i class="fas fa-columns"></i> Campos para Exportar</h3>
-
-            <div class="export-fields">
-              <label class="field-checkbox">
-                <input type="checkbox" value="order_sn" checked>
-                <span class="checkmark"></span>
-                ID do Pedido
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="create_time" checked>
-                <span class="checkmark"></span>
-                Data de Criação
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="order_status" checked>
-                <span class="checkmark"></span>
-                Status
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="buyer_username" checked>
-                <span class="checkmark"></span>
-                Cliente
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="total_amount" checked>
-                <span class="checkmark"></span>
-                Valor Total
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="shipping_fee" checked>
-                <span class="checkmark"></span>
-                Frete
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="payment_method">
-                <span class="checkmark"></span>
-                Método de Pagamento
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="recipient_address">
-                <span class="checkmark"></span>
-                Endereço de Entrega
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="items_list">
-                <span class="checkmark"></span>
-                Lista de Itens
-              </label>
-              <label class="field-checkbox">
-                <input type="checkbox" value="note">
-                <span class="checkmark"></span>
-                Observações
-              </label>
-            </div>
-          </div>
-
-          <!-- Resumo da Exportação -->
-          <div class="form-section">
-            <div class="export-summary">
-              <h4><i class="fas fa-info-circle"></i> Resumo da Exportação</h4>
-              <div id="export-preview">
-                <p><strong>Período:</strong> <span id="summary-period">30 dias</span></p>
-                <p><strong>Status:</strong> <span id="summary-status">Todos</span></p>
-                <p><strong>Formato:</strong> <span id="summary-format">Excel</span></p>
-                <p><strong>Campos:</strong> <span id="summary-fields">6 campos selecionados</span></p>
-                <p><strong>Estimativa:</strong> <span id="summary-estimate">Calculando...</span></p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeExportModal()">
-          <i class="fas fa-times"></i> Cancelar
-        </button>
-        <button class="btn btn-info" onclick="previewExport()">
-          <i class="fas fa-eye"></i> Pré-visualizar
-        </button>
-        <button class="btn btn-success" onclick="executeExport()">
-          <i class="fas fa-download"></i> Exportar Agora
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-function setupExportModalListeners() {
-  // Atualizar resumo quando algo mudar
-  updateExportSummary();
-
-  // Calcular estimativa de registros
-  calculateExportEstimate();
-}
-
-function setPresetPeriod(days) {
-  const today = new Date();
-  const startDate = new Date(today.getTime() - (days * 24 * 60 * 60 * 1000));
-
-  document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
-  document.getElementById('end-date').value = today.toISOString().split('T')[0];
-
-  // Atualizar botões ativos
-  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-
-  validateDateRange();
-  updateExportSummary();
-  calculateExportEstimate();
-}
-
-function validateDateRange() {
-  const startDate = new Date(document.getElementById('start-date').value);
-  const endDate = new Date(document.getElementById('end-date').value);
-
-  if (startDate > endDate) {
-    showNotification('Data inicial não pode ser maior que a data final', 'error');
-    return false;
-  }
-
-  const diffTime = Math.abs(endDate - startDate);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  document.getElementById('period-summary').textContent =
-    `Período selecionado: ${diffDays} dias (${formatDateBR(document.getElementById('start-date').value)} até ${formatDateBR(document.getElementById('end-date').value)})`;
-
-  updateExportSummary();
-  calculateExportEstimate();
-  return true;
-}
-
-function handleStatusFilter(checkbox) {
-  const allCheckbox = document.querySelector('input[value="ALL"]');
-  const otherCheckboxes = document.querySelectorAll('.status-checkbox input:not([value="ALL"])');
-
-  if (checkbox.value === 'ALL') {
-    if (checkbox.checked) {
-      otherCheckboxes.forEach(cb => cb.checked = false);
-    }
-  } else {
-    if (checkbox.checked) {
-      allCheckbox.checked = false;
-    }
-
-    // Se nenhum status específico estiver marcado, marcar "Todos"
-    const anyChecked = Array.from(otherCheckboxes).some(cb => cb.checked);
-    if (!anyChecked) {
-      allCheckbox.checked = true;
-    }
-  }
-
-  updateExportSummary();
-  calculateExportEstimate();
-}
-
-function updateExportSummary() {
-  // Período
-  const startDate = document.getElementById('start-date').value;
-  const endDate = document.getElementById('end-date').value;
-  const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  document.getElementById('summary-period').textContent = `${diffDays} dias`;
-
-  // Status
-  const checkedStatuses = Array.from(document.querySelectorAll('.status-checkbox input:checked'))
-    .map(cb => cb.value);
-  const statusText = checkedStatuses.includes('ALL') ? 'Todos' : `${checkedStatuses.length} status selecionados`;
-  document.getElementById('summary-status').textContent = statusText;
-
-  // Formato
-  const selectedFormat = document.querySelector('input[name="export-format"]:checked').value;
-  const formatNames = { excel: 'Excel', csv: 'CSV', json: 'JSON' };
-  document.getElementById('summary-format').textContent = formatNames[selectedFormat];
-
-  // Campos
-  const checkedFields = document.querySelectorAll('.field-checkbox input:checked').length;
-  document.getElementById('summary-fields').textContent = `${checkedFields} campos selecionados`;
-}
-
-async function calculateExportEstimate() {
-  try {
-    const startDate = document.getElementById('start-date').value;
-    const endDate = document.getElementById('end-date').value;
-    const checkedStatuses = Array.from(document.querySelectorAll('.status-checkbox input:checked'))
-      .map(cb => cb.value);
-
-    // Simular cálculo (em produção, fazer uma chamada à API)
-    const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    // Estimativa baseada em média de pedidos por dia
-    const avgOrdersPerDay = 15; // Ajustar conforme necessário
-    const estimatedOrders = Math.round(diffDays * avgOrdersPerDay * (checkedStatuses.includes('ALL') ? 1 : checkedStatuses.length * 0.2));
-
-    document.getElementById('summary-estimate').textContent = `~${estimatedOrders} pedidos`;
-
-  } catch (error) {
-    document.getElementById('summary-estimate').textContent = 'Erro no cálculo';
-  }
-}
-
-async function previewExport() {
-  if (!validateDateRange()) return;
-
-  showNotification('Gerando pré-visualização...', 'info');
-
-  try {
-    const exportData = getExportData();
-
-    // Simular dados de preview
-    const previewData = {
-      totalRecords: Math.floor(Math.random() * 500) + 50,
-      sampleRecords: [
-        { order_sn: '2024001', create_time: '2024-01-15', order_status: 'COMPLETED', buyer_username: 'cliente1', total_amount: 'R\$ 150,00' },
-        { order_sn: '2024002', create_time: '2024-01-16', order_status: 'SHIPPED', buyer_username: 'cliente2', total_amount: 'R\$ 89,50' },
-        { order_sn: '2024003', create_time: '2024-01-17', order_status: 'TO_SHIP', buyer_username: 'cliente3', total_amount: 'R\$ 245,30' }
-      ]
+    const reportContent = {
+      product_id: itemId,
+      product_name: productData?.item_name || `Produto ${itemId}`,
+      analysis_date: new Date().toISOString(),
+      type: 'competitive_analysis',
+      data: analysisInfo
     };
 
-    showExportPreview(previewData);
-    showNotification('Pré-visualização gerada!', 'success');
-
-  } catch (error) {
-    showNotification('Erro ao gerar pré-visualização', 'error');
-  }
+    downloadFile(`analise_produto_${itemId}.json`, JSON.stringify(reportContent, null, 2));
+    showNotification('Relatório exportado!', 'success');
+  }, 1000);
 }
 
-async function executeExport() {
-  if (!validateDateRange()) return;
+// ========================================
+// FUNÇÕES AUXILIARES PARA FORMATAÇÃO
+// ========================================
+// formatCurrency já existe
 
-  const exportData = getExportData();
-
-  showNotification('Iniciando exportação...', 'info');
-
-  try {
-    // Simular processo de exportação
-    const response = await simulateExport(exportData);
-
-    if (response.success) {
-      showNotification('Exportação concluída! Download iniciado.', 'success');
-      closeExportModal();
-
-      // Simular download
-      downloadFile(response.filename, response.data);
-    } else {
-      throw new Error(response.error);
-    }
-
-  } catch (error) {
-    showNotification('Erro na exportação: ' + error.message, 'error');
+function formatNumber(value) {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
+  if (value >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'M';
   }
+  if (value >= 1000) {
+    return (value / 1000).toFixed(1) + 'K';
+  }
+  return value.toString();
+}
+// ========================================
+// FUNÇÃO formatCurrency (ADICIONAR APÓS AS OUTRAS FUNÇÕES AUXILIARES)
+// ========================================
+function formatCurrency(value) {
+  if (!value || value === 0) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
 }
 
-function getExportData() {
-  return {
-    startDate: document.getElementById('start-date').value,
-    endDate: document.getElementById('end-date').value,
-    statuses: Array.from(document.querySelectorAll('.status-checkbox input:checked')).map(cb => cb.value),
-    format: document.querySelector('input[name="export-format"]:checked').value,
-    fields: Array.from(document.querySelectorAll('.field-checkbox input:checked')).map(cb => cb.value)
+function getStatusClass(status) {
+  const statusMap = {
+    'NORMAL': 'status-normal',
+    'BANNED': 'status-banned',
+    'DELETED': 'status-deleted',
+    'UNLIST': 'status-inactive',
+    'INACTIVE': 'status-inactive'
   };
+  return statusMap[status] || 'status-unknown';
+}
+// getStatusClass já existe
+
+function updateProductsCount(filtered, total) {
+  const countElement = document.getElementById('products-count-display');
+  if (countElement) {
+    countElement.textContent = `Exibindo ${filtered} de ${total} produtos`;
+  }
 }
 
-function closeExportModal() {
-  const modal = document.getElementById('export-modal');
-  if (modal) modal.remove();
-}
+// downloadFile já existe
 
-// Funções auxiliares
+// ========================================
+// MODAL DE EXPORTAÇÃO DE PEDIDOS
+// ========================================
+// showExportModal já existe
+// closeExportModal já existe
+// setExportPeriod já existe
+// updateExportSummary já existe
+// processExport já existe
+
+
+// Funções auxiliares de formato (já existem)
+/*
 function formatDateBR(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString('pt-BR');
@@ -3020,16 +2633,11 @@ async function simulateExport(exportData) {
   };
 }
 
-function downloadFile(filename, data) {
-  // Simular download
-  console.log(`Download iniciado: ${filename}`);
-  showNotification(`Arquivo ${filename} baixado com sucesso!`, 'success');
-}
-
 function showExportPreview(previewData) {
   console.log('Preview dos dados:', previewData);
   alert(`Pré-visualização:\n\nTotal de registros: ${previewData.totalRecords}\n\nPrimeiros registros:\n${JSON.stringify(previewData.sampleRecords, null, 2)}`);
 }
+*/
 
 // ========================================
 // MONITORAMENTO DE PERFORMANCE
@@ -3059,16 +2667,5 @@ function showCacheStatus() {
   }
 }
 
-// Adicionar ao header se desejar
-function addCacheStatusToHeader() {
-  const header = document.querySelector('.products-header .products-actions');
-  if (header) {
-    const statusBtn = document.createElement('button');
-    statusBtn.className = 'btn btn-outline-info btn-sm';
-    statusBtn.innerHTML = '<i class="fas fa-info-circle"></i> Status Cache';
-    statusBtn.onclick = showCacheStatus;
-    header.appendChild(statusBtn);
-  }
-}
 
-    console.log('✨ Estilos para cards de pedidos adicionados!');
+console.log('✅ Todas as funções auxiliares foram adicionadas!');
