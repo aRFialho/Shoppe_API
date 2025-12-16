@@ -970,27 +970,195 @@ app.get('/api/my-shopee/product-details/:item_id', async (req, res) => {
 });
 
 // 2. PAGINAÇÃO DE PRODUTOS
-// ✅ CÓDIGO CORRIGIDO (USAR)
+// 
+// ROTA CORRIGIDA: BUSCAR PRODUTOS COM DADOS COMPLETOS
+// 
 app.get('/api/my-shopee/products/page/:page', async (req, res) => {
   try {
     const page = parseInt(req.params.page) || 0;
-    const pageSize = 100;
-    const offset = page * pageSize;
-
-    console.log(`📄 Buscando página ${page} (offset: ${offset})`);
-
-    // Carregar dados de conexão
-    const connectionData = loadConnectionFromFile();
-
-    // Verificar autenticação
-    if (!connectionData.access_token || !connectionData.shop_id) {
-      return res.json({
+    const pageSize = 50; // Reduzir para 50 para garantir que funcione
+    
+    console.log(`📄 [PÁGINA ${page}] Iniciando busca de produtos...`);
+    
+    // Verificar conexão
+    if (!connectionStore.connected || !connectionStore.access_token) {
+      console.log('❌ Loja não conectada');
+      return res.status(401).json({
         success: false,
-        error: 'not_authenticated',
-        message: 'Loja não conectada. É necessário fazer a autenticação.',
-        redirect: '/api/my-shopee/connect'
+        error: 'Loja não conectada. Conecte sua loja primeiro.'
       });
     }
+
+    console.log(`✅ Loja conectada: Shop ID ${connectionStore.shop_id}`);
+
+    // ============================================
+    // ETAPA 1: Buscar lista de IDs dos produtos
+    // ============================================
+    console.log(`🔍 [ETAPA 1] Buscando lista de IDs...`);
+    
+    const timestamp1 = Math.floor(Date.now() / 1000);
+    const path1 = '/api/v2/product/get_item_list';
+    const signature1 = generateSignature(
+      path1,
+      timestamp1,
+      connectionStore.access_token,
+      connectionStore.shop_id
+    );
+
+    const listResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path1}`, {
+      params: {
+        partner_id: SHOPEE_CONFIG.partner_id,
+        timestamp: timestamp1,
+        access_token: connectionStore.access_token,
+        shop_id: connectionStore.shop_id,
+        sign: signature1,
+        item_status: 'NORMAL',
+        page_size: pageSize,
+        offset: page * pageSize
+      },
+      timeout: 30000
+    });
+
+    console.log(`📊 [ETAPA 1] Resposta recebida:`, {
+      error: listResponse.data.error,
+      message: listResponse.data.message,
+      total_items: listResponse.data.response?.item?.length || 0
+    });
+
+    if (listResponse.data.error) {
+      throw new Error(`Shopee API Error: ${listResponse.data.message}`);
+    }
+
+    const items = listResponse.data.response?.item || [];
+    const hasNextPage = listResponse.data.response?.has_next_page || false;
+    const totalCount = listResponse.data.response?.total_count || 0;
+
+    console.log(`✅ [ETAPA 1] ${items.length} IDs encontrados`);
+
+    if (items.length === 0) {
+      console.log('⚠️ Nenhum produto encontrado nesta página');
+      return res.json({
+        success: true,
+        products: [],
+        total_count: totalCount,
+        has_next_page: false,
+        page: page
+      });
+    }
+
+    // ============================================
+    // ETAPA 2: Buscar detalhes completos dos produtos
+    // ============================================
+    console.log(`🔍 [ETAPA 2] Buscando detalhes completos...`);
+    
+    const itemIds = items.map(item => item.item_id);
+    console.log(`📋 IDs para buscar: ${itemIds.join(', ')}`);
+    
+    const timestamp2 = Math.floor(Date.now() / 1000);
+    const path2 = '/api/v2/product/get_item_base_info';
+    const signature2 = generateSignature(
+      path2,
+      timestamp2,
+      connectionStore.access_token,
+      connectionStore.shop_id
+    );
+
+    const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
+      params: {
+        partner_id: SHOPEE_CONFIG.partner_id,
+        timestamp: timestamp2,
+        access_token: connectionStore.access_token,
+        shop_id: connectionStore.shop_id,
+        sign: signature2,
+        item_id_list: itemIds.join(','),
+        need_tax_info: false,
+        need_complaint_policy: false
+      },
+      timeout: 45000
+    });
+
+    console.log(`📊 [ETAPA 2] Resposta recebida:`, {
+      error: detailsResponse.data.error,
+      message: detailsResponse.data.message,
+      items_returned: detailsResponse.data.response?.item_list?.length || 0
+    });
+
+    if (detailsResponse.data.error) {
+      console.error(`❌ Erro na API de detalhes: ${detailsResponse.data.message}`);
+      // Retornar produtos básicos mesmo com erro
+      return res.json({
+        success: true,
+        products: items,
+        total_count: totalCount,
+        has_next_page: hasNextPage,
+        page: page,
+        warning: 'Detalhes completos não disponíveis'
+      });
+    }
+
+    const productsWithDetails = detailsResponse.data.response?.item_list || [];
+    
+    console.log(`✅ [ETAPA 2] ${productsWithDetails.length} produtos com detalhes`);
+
+    // Verificar se os detalhes estão completos
+    if (productsWithDetails.length > 0) {
+      const sample = productsWithDetails[0];
+      console.log(`🔍 [VERIFICAÇÃO] Amostra do primeiro produto:`, {
+        item_id: sample.item_id,
+        has_name: !!sample.item_name,
+        has_price: !!(sample.price_info && sample.price_info.length > 0),
+        has_images: !!(sample.image && sample.image.image_url_list && sample.image.image_url_list.length > 0),
+        has_stock: !!sample.stock_info_v2
+      });
+    }
+
+    // ============================================
+    // ETAPA 3: Processar e formatar dados
+    // ============================================
+    console.log(`🔧 [ETAPA 3] Processando dados...`);
+    
+    const processedProducts = productsWithDetails.map(product => {
+      // Processar imagens
+      let images = [];
+      if (product.image && product.image.image_url_list) {
+        images = product.image.image_url_list.map(img => 
+          img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`
+        );
+      }
+
+      return {
+        ...product,
+        images: images // Adicionar campo images no nível raiz para compatibilidade
+      };
+    });
+
+    console.log(`✅ [ETAPA 3] ${processedProducts.length} produtos processados`);
+
+    // ============================================
+    // RESPOSTA FINAL
+    // ============================================
+    res.json({
+      success: true,
+      products: processedProducts,
+      total_count: totalCount,
+      has_next_page: hasNextPage,
+      page: page,
+      items_in_page: processedProducts.length
+    });
+
+    console.log(`🎉 [SUCESSO] Página ${page} enviada com ${processedProducts.length} produtos`);
+
+  } catch (error) {
+    console.error('❌ [ERRO CRÍTICO] Erro ao buscar produtos:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
 
     // Função para fazer a requisição
     // ✅ CÓDIGO CORRIGIDO:
