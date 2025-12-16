@@ -55,7 +55,7 @@ let connectionStore = loadConnectionFromFile();
 // ========================================
 require('dotenv').config();
 
-const FIXED_DOMAIN = process.env.API_BASE_URL || ' https://a6e4e8a535cc.ngrok-free.app';
+const FIXED_DOMAIN = process.env.API_BASE_URL || ' https://shoppe-api-heqa.onrender.com';
 
 const SHOPEE_CONFIG = {
   partner_id: process.env.SHOPEE_PARTNER_ID || '2012740',
