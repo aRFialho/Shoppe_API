@@ -15,7 +15,7 @@ const SHOPEE_CONFIG = {
     'shpk52447844616d65636e77716a6a676d696c646947466d67496c4c584c6e52',
   redirect_url:
     process.env.SHOPEE_REDIRECT_URL ||
-    'https://shopee-manager.vercel.app',
+    'https://shoppe-api-heqa.onrender.com',
   environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
 
   // Scopes necessários

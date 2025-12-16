@@ -9,8 +9,8 @@ app.use(express.json());
 // CONFIGURA��O COM DOM�NIO FIXO
 // ========================================
 const FIXED_DOMAIN =
-  'https://https://shopee-manager.vercel.app';
-('https://shopee-manager.vercel.app');
+  'https://https://shoppe-api-heqa.onrender.com';
+('https://shoppe-api-heqa.onrender.com');
 
 const SHOPEE_CONFIG = {
   partner_id: '1185765',

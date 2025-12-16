@@ -475,7 +475,7 @@ app.get('/dashboard', (req, res) => {
 
               <div class="info">
                   <h3>📋 Configuração Atual:</h3>
-                  <p><strong>🌐 Domínio Fixo:</strong> shopee-manager.vercel.app</p>
+                  <p><strong>🌐 Domínio Fixo:</strong> shoppe-api-heqa.onrender.com</p>
                   <p><strong>🔑 Partner ID:</strong> ${SHOPEE_CONFIG.partner_id}</p>
                   <p><strong>🔗 Callback URL:</strong> ${SHOPEE_CONFIG.redirect_url}</p>
                   <p><strong>🏪 Loja:</strong> ${connectionStore.shop_info?.shop_name || 'Não conectada'}</p>
@@ -493,7 +493,7 @@ app.get('/dashboard', (req, res) => {
               <div class="info">
                   <h3>📝 Próximos Passos:</h3>
                   <ol>
-                      <li>Configure o domínio <strong>shopee-manager.vercel.app</strong> no Shopee Open Platform</li>
+                      <li>Configure o domínio <strong>shoppe-api-heqa.onrender.com</strong> no Shopee Open Platform</li>
                       <li>Use <strong>/api/my-shopee/connect</strong> para gerar auth_url</li>
                       <li>Clique na auth_url para conectar sua loja</li>
                       <li>Aguarde redirecionamento automático</li>
@@ -629,7 +629,7 @@ app.get('/api/my-shopee/setup', (req, res) => {
       redirect_url: SHOPEE_CONFIG.redirect_url,
     },
     shopee_configuration: {
-      domain_to_set: 'shopee-manager.vercel.app',
+      domain_to_set: 'shoppe-api-heqa.onrender.com',
       callback_endpoint: `${FIXED_DOMAIN}/auth/shopee/callback`,
     },
     status: 'ready_to_connect',
@@ -645,7 +645,7 @@ app.get('/api/my-shopee/connect', (req, res) => {
       auth_url: authUrl,
       message: 'Clique no auth_url para conectar SUA loja Shopee',
       instructions: [
-        '1. Configure o domínio shopee-manager.vercel.app na Shopee Open Platform',
+        '1. Configure o domínio shoppe-api-heqa.onrender.com na Shopee Open Platform',
         '2. Clique no auth_url abaixo',
         '3. Faça login na SUA conta Shopee (a que tem milhares de produtos)',
         '4. Autorize o acesso aos seus produtos',
@@ -653,7 +653,7 @@ app.get('/api/my-shopee/connect', (req, res) => {
       ],
       domain_info: {
         fixed_domain: FIXED_DOMAIN,
-        configure_in_shopee: 'shopee-manager.vercel.app',
+        configure_in_shopee: 'shoppe-api-heqa.onrender.com',
         callback_url: SHOPEE_CONFIG.redirect_url,
         partner_id: SHOPEE_CONFIG.partner_id,
       },
@@ -684,12 +684,12 @@ app.get('/api/my-shopee/status', (req, res) => {
       success: true,
       connected: false,
       message:
-        'Configure o domínio shopee-manager.vercel.app na Shopee e conecte sua loja',
+        'Configure o domínio shoppe-api-heqa.onrender.com na Shopee e conecte sua loja',
       domain_status: 'fixed_domain_ready',
       fixed_domain: FIXED_DOMAIN,
-      configure_in_shopee: 'shopee-manager.vercel.app',
+      configure_in_shopee: 'shoppe-api-heqa.onrender.com',
       next_steps: [
-        '1. Configure o domínio shopee-manager.vercel.app na Shopee Open Platform',
+        '1. Configure o domínio shoppe-api-heqa.onrender.com na Shopee Open Platform',
         '2. Use /api/my-shopee/connect para gerar auth_url',
         '3. Clique na auth_url para conectar sua loja',
       ],
@@ -2511,7 +2511,7 @@ app.get('/api/health', (req, res) => {
       partner_id: SHOPEE_CONFIG.partner_id,
       environment: SHOPEE_CONFIG.environment,
       domain_fixed: true,
-      custom_domain: 'shopee-manager.vercel.app',
+      custom_domain: 'shoppe-api-heqa.onrender.com',
       callback_url: SHOPEE_CONFIG.redirect_url,
     },
     available_tests: [
