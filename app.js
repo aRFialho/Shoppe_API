@@ -1160,37 +1160,6 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
   }
 });
 
-    // Função para fazer a requisição
-    // ✅ CÓDIGO CORRIGIDO:
-async function makeProductRequest() {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const path = '/api/v2/product/get_item_list';
-  const signature = generateSignature(
-    path,
-    timestamp,
-    connectionData.access_token,
-    connectionData.shop_id
-  );
-
-  const response = await axios.get(`${SHOPEE_CONFIG.api_base}${path}`, {
-    params: {
-      partner_id: SHOPEE_CONFIG.partner_id,
-      timestamp: timestamp,
-      access_token: connectionData.access_token,
-      shop_id: connectionData.shop_id,
-      sign: signature,
-      item_status: 'NORMAL',
-      page_size: pageSize,
-      offset: offset,
-    },
-    timeout: 30000,
-  });
-
-  return response.data;
-}
-
-    // Fazer a requisição
-    const responseData = await makeProductRequest();
     console.log('📦 Resposta da Shopee:', responseData);
 
     // Verificar se há erro na resposta
@@ -1226,16 +1195,7 @@ async function makeProductRequest() {
       has_next_page: responseData.response.has_next_page || false
     });
 
-  } catch (error) {
-    console.error('❌ Erro no endpoint de produtos:', error);
-    res.json({
-      success: false,
-      error: 'server_error',
-      message: `Erro interno do servidor: ${error.message}`,
-      details: error.stack
-    });
-  }
-});
+
 
 // 3. ESTATÍSTICAS DA LOJA
 app.get('/api/my-shopee/stats', async (req, res) => {
