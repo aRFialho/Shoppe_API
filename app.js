@@ -1195,8 +1195,6 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
       has_next_page: responseData.response.has_next_page || false
     });
 
-
-
 // 3. ESTATÍSTICAS DA LOJA
 app.get('/api/my-shopee/stats', async (req, res) => {
   if (!connectionStore.connected) {
