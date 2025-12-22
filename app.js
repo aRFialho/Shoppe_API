@@ -200,6 +200,30 @@ const saveConnection = async (shopId, authCode, tokenData, shopInfo) => {
   });
 };
 
+global.responseData = {};
+// Validação de variáveis não declaradas
+const validateVariables = () => {
+  console.log('🔍 Validando variáveis...');
+  
+  // Lista de variáveis que devem estar declaradas
+  const requiredVars = ['responseData', 'connectionStore', 'SHOPEE_CONFIG'];
+  
+  requiredVars.forEach(varName => {
+    try {
+      if (typeof eval(varName) === 'undefined') {
+        console.warn(`⚠️  Variável ${varName} pode não estar definida em todos os escopos`);
+      }
+    } catch (e) {
+      console.warn(`⚠️  Variável ${varName} não encontrada`);
+    }
+  });
+  
+  console.log('✅ Validação completa!');
+};
+
+// Chame após definir todas as variáveis globais
+validateVariables();
+
 // ========================================
 // ENDPOINTS DE TESTE
 // ========================================
