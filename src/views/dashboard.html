@@ -48,7 +48,7 @@
           </h1>
           <div class="header-actions">
             <button class="btn btn-primary" id="sync-btn">
-              <i class="fas fa-sync"></i> Sincronizar
+              <i class="fas fa-sync"></i> Sincronizar Tudo
             </button>
           </div>
         </div>
@@ -114,7 +114,7 @@
               <i class="fas fa-dollar-sign"></i>
             </div>
             <div class="stat-info">
-              <h3 id="stock-value">R\$ 0</h3>
+              <h3 id="stock-value">R$ 0</h3>
               <p>Valor do Estoque</p>
             </div>
           </div>
@@ -139,64 +139,80 @@
       <!-- Products Tab -->
       <div id="products" class="tab-content">
         <div class="products-header">
-          <h2>Gestão de Produtos</h2>
-          <div class="filters">
-            <select id="status-filter">
-              <option value="">Todos os Status</option>
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-              <option value="draft">Rascunho</option>
-            </select>
-            <input
-              type="text"
-              id="search-products"
-              placeholder="Buscar produtos..."
-            />
+          <div class="header-left">
+            <h2><i class="fas fa-box"></i> Gestão de Produtos</h2>
+          </div>
+          <div class="header-right">
+            <button class="btn btn-primary" onclick="syncProducts()">
+              <i class="fas fa-sync-alt"></i> Sincronizar
+            </button>
+            <button class="btn btn-success" onclick="exportProductsList()">
+              <i class="fas fa-download"></i> Exportar
+            </button>
           </div>
         </div>
+        
+        <div class="filters">
+          <select id="status-filter">
+            <option value="">Todos os Status</option>
+            <option value="NORMAL">Ativo</option>
+            <option value="BANNED">Banido</option>
+            <option value="DELETED">Deletado</option>
+          </select>
+          <input
+            type="text"
+            id="search-products"
+            placeholder="Buscar produtos..."
+          />
+        </div>
+        
         <div id="products-table" class="table-container">
           <div class="loading">Carregando produtos...</div>
         </div>
-        <div class="products-header">
-  <h2><i class="fas fa-box"></i> Produtos da Shopee</h2>
-  <div class="products-actions">
-    <button class="btn btn-primary" onclick="syncProducts()">
-      <i class="fas fa-sync-alt"></i> Sincronizar com Shopee
-    </button>
-    <button class="btn btn-success" onclick="exportProductsList()">
-      <i class="fas fa-download"></i> Exportar
-    </button>
-  </div>
-</div>
       </div>
 
       <!-- Orders Tab -->
       <div id="orders" class="tab-content">
-        <div class="orders-welcome">
-          <div class="welcome-header">
+        <div class="orders-header">
+          <div class="header-left">
             <h2><i class="fas fa-shopping-cart"></i> Gestão de Pedidos</h2>
-            <p>Monitore todos os pedidos da sua loja com alertas inteligentes de alteração de endereço</p>
+            <p>Monitore todos os pedidos da sua loja com alertas inteligentes</p>
           </div>
-          <div class="orders-features">
-            <div class="feature-highlight">
-              <i class="fas fa-list-alt"></i>
-              <span>Histórico Completo</span>
-            </div>
-            <div class="feature-highlight">
-              <i class="fas fa-exclamation-triangle"></i>
-              <span>Alertas de Endereço</span>
-            </div>
-            <div class="feature-highlight">
-              <i class="fas fa-chart-line"></i>
-              <span>Análise de Vendas</span>
-            </div>
-            <div class="feature-highlight">
-              <i class="fas fa-download"></i>
-              <span>Exportação</span>
-            </div>
+          <div class="header-right">
+            <button class="btn btn-primary" onclick="syncOrders()">
+              <i class="fas fa-sync-alt"></i> Sincronizar
+            </button>
+            <button class="btn btn-success" onclick="exportOrdersList()">
+              <i class="fas fa-download"></i> Exportar
+            </button>
           </div>
         </div>
-        <div id="orders-content" class="orders-container">
+
+        <div class="orders-filters">
+          <select id="order-status-filter">
+            <option value="ALL">Todos os Status</option>
+            <option value="UNPAID">Não Pago</option>
+            <option value="READY_TO_SHIP">Pronto para Enviar</option>
+            <option value="PROCESSED">Processado</option>
+            <option value="SHIPPED">Enviado</option>
+            <option value="COMPLETED">Completo</option>
+            <option value="CANCELLED">Cancelado</option>
+          </select>
+          <select id="order-days-filter">
+            <option value="7">Últimos 7 dias</option>
+            <option value="15">Últimos 15 dias</option>
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="60">Últimos 60 dias</option>
+            <option value="90">Últimos 90 dias</option>
+          </select>
+          <input
+            type="text"
+            id="search-orders"
+            placeholder="Buscar por número do pedido ou cliente..."
+          />
+        </div>
+
+        <div id="orders-content" class="orders-grid">
           <div class="loading">Carregando pedidos...</div>
         </div>
       </div>

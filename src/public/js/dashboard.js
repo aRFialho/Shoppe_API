@@ -567,6 +567,66 @@ function createEnhancedOrderCard(order) {
   `;
 }
 
+// 
+// FUNÇÃO PARA SINCRONIZAR PRODUTOS
+// 
+async function syncProducts() {
+  try {
+    showNotification('🔄 Sincronizando produtos com a Shopee...', 'info');
+    
+    const response = await fetch('/api/my-shopee/products/sync', {
+      method: 'POST'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification(`✅ ${data.total_synced} produtos sincronizados!`, 'success');
+      
+      // Recarregar produtos
+      setTimeout(() => {
+        loadProducts();
+      }, 1000);
+    } else {
+      throw new Error(data.error);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    showNotification(`❌ Erro: ${error.message}`, 'error');
+  }
+}
+
+// 
+// FUNÇÃO PARA SINCRONIZAR PEDIDOS
+// 
+async function syncOrders() {
+  try {
+    showNotification('🔄 Sincronizando pedidos com a Shopee...', 'info');
+    
+    const response = await fetch('/api/my-shopee/orders/sync', {
+      method: 'POST'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification(`✅ ${data.total_synced} pedidos sincronizados!`, 'success');
+      
+      // Recarregar pedidos
+      setTimeout(() => {
+        loadOrders();
+      }, 1000);
+    } else {
+      throw new Error(data.error);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    showNotification(`❌ Erro: ${error.message}`, 'error');
+  }
+}
+
 function generateOrderPerformance(order) {
   const totalAmount = parseFloat(order.details?.total_amount || 0);
   const itemsCount = order.details?.item_list?.length || 1;
