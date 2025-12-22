@@ -968,7 +968,6 @@ body::before {
   color: #2d3748;
   line-height: 1.2;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   height: 3.6em;

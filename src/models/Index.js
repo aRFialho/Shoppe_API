@@ -1,28 +1,39 @@
-// ========================================
-// ÍNDICE DOS MODELOS - Shopee Manager
-// ========================================
-
-const { sequelize } = require('../config/database');
-
-// Importar todos os modelos
 const Product = require('./Product');
 const Order = require('./Order');
-const ShopeeAuth = require('./ShopeeAuth');
+const SyncLog = require('./SyncLog');
+const { sequelize } = require('../config/database');
 
-// Definir relacionamentos entre modelos
-const defineAssociations = () => {
-  // Futuramente implementaremos relacionamentos
-  // Product.belongsToMany(Order, { through: 'OrderItems' });
-  // Order.belongsToMany(Product, { through: 'OrderItems' });
-};
-
-// Executar definição de relacionamentos
-defineAssociations();
-
-// Exportar todos os modelos e a instância do Sequelize
+// Exportar modelos
 module.exports = {
-  sequelize,
   Product,
   Order,
-  ShopeeAuth,
+  SyncLog,
+  sequelize
 };
+
+// Inicializar associações (se necessário no futuro)
+const initAssociations = () => {
+  // Aqui você pode definir relações entre modelos
+  // Exemplo: Order.belongsTo(Product, { foreignKey: 'product_id' });
+};
+
+// Função para sincronizar todos os modelos
+const syncDatabase = async (force = false) => {
+  try {
+    console.log('🔄 Sincronizando banco de dados...');
+    
+    // Sincronizar modelos
+    await Product.sync({ force });
+    await Order.sync({ force });
+    await SyncLog.sync({ force });
+    
+    console.log('✅ Banco de dados sincronizado com sucesso!');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao sincronizar banco de dados:', error);
+    return false;
+  }
+};
+
+module.exports.initAssociations = initAssociations;
+module.exports.syncDatabase = syncDatabase;

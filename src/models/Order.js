@@ -1,71 +1,106 @@
-// ========================================
-// MODELO ORDER - Pedidos da Shopee
-// ========================================
-
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const Order = sequelize.define(
-  'Order',
-  {
-    // ID único do pedido
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-
-    // ID do pedido na Shopee
-    shopee_order_id: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true,
-      comment: 'ID do pedido na plataforma Shopee',
-    },
-
-    // Informações do cliente
-    customer_name: {
-      type: DataTypes.STRING(200),
-      allowNull: true,
-      comment: 'Nome do cliente',
-    },
-
-    // Status do pedido
-    status: {
-      type: DataTypes.ENUM(
-        'pending_payment',
-        'payment_confirmed',
-        'processing',
-        'shipped',
-        'delivered',
-        'cancelled',
-        'refunded',
-        'completed'
-      ),
-      allowNull: false,
-      defaultValue: 'pending_payment',
-      comment: 'Status atual do pedido',
-    },
-
-    // Valores financeiros
-    total_amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      defaultValue: 0.0,
-      comment: 'Valor total do pedido',
-    },
-
-    // Datas importantes
-    order_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-      comment: 'Data do pedido',
-    },
+const Order = sequelize.define('Order', {
+  // ID único da Shopee
+  order_sn: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
+    primaryKey: true
   },
-  {
-    tableName: 'orders',
+  
+  // ID da loja
+  shop_id: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    index: true
+  },
+  
+  // Informações do cliente
+  buyer_username: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  
+  // Valores
+  total_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
+  },
+  
+  // Status
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: 'UNPAID'
+  },
+  
+  // Itens do pedido (armazenados como JSON string)
+  items: {
+    type: DataTypes.TEXT,
+    defaultValue: '[]',
+    get() {
+      const rawValue = this.getDataValue('items');
+      try {
+        return JSON.parse(rawValue);
+      } catch {
+        return [];
+      }
+    },
+    set(value) {
+      this.setDataValue('items', JSON.stringify(value || []));
+    }
+  },
+  
+  // Endereço de entrega
+  shipping_address: {
+    type: DataTypes.TEXT,
+    defaultValue: '{}',
+    get() {
+      const rawValue = this.getDataValue('shipping_address');
+      try {
+        return JSON.parse(rawValue);
+      } catch {
+        return {};
+      }
+    },
+    set(value) {
+      this.setDataValue('shipping_address', JSON.stringify(value || {}));
+    }
+  },
+  
+  // Método de pagamento
+  payment_method: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  
+  // Datas da Shopee
+  created_time: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  
+  updated_time: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  
+  // Controle de sincronização
+  last_synced: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
-);
+}, {
+  tableName: 'orders',
+  timestamps: true,
+  indexes: [
+    { fields: ['shop_id'] },
+    { fields: ['order_sn'] },
+    { fields: ['status'] },
+    { fields: ['last_synced'] },
+    { fields: ['created_time'] }
+  ]
+});
 
 module.exports = Order;

@@ -462,154 +462,103 @@ function displayOrders(orders, metadata) {
 function createEnhancedOrderCard(order) {
   const orderDate = formatFullDate(order.create_time);
   const status = getOrderStatusInfo(order.order_status);
-  const hasAddressAlert = order.details?.address_history?.has_changes || false;
-
-  const totalAmount = parseFloat(order.details?.total_amount || 0);
-  const shippingFee = parseFloat(order.details?.actual_shipping_fee || order.details?.estimated_shipping_fee || 0);
-  const itemsCount = order.details?.item_list?.length || 0;
-  const buyerUsername = order.details?.buyer_username || order.buyer_username || 'N/A';
+  
+  const totalAmount = parseFloat(order.total_amount || 0);
+  const shippingFee = parseFloat(order.shipping_fee || 0);
+  const itemsCount = order.items_count || 0;
+  const buyerUsername = order.buyer_username || 'N/A';
   const orderSn = order.order_sn;
-
-  // Simular dados de performance do pedido
-  const orderPerformance = generateOrderPerformance(order);
+  
+  const items = order.items || [];
 
   return `
-    <div class="order-card-enhanced ${hasAddressAlert ? 'has-alert' : ''}" data-order-sn="${orderSn}">
-
-      <!-- HEADER DO PEDIDO -->
-      <div class="order-header">
-        <div class="order-id-section">
-          <span class="order-id-badge">
-            <i class="fas fa-hashtag"></i> ${orderSn}
-          </span>
-          <span class="order-status-badge status-${status.class}">${status.text}</span>
-          ${hasAddressAlert ? '<span class="alert-badge">🚨 Endereço Alterado</span>' : ''}
+    <div class="order-card-modern" data-order-sn="${orderSn}">
+      
+      <!-- HEADER -->
+      <div class="order-card-header">
+        <div class="order-id-badge">
+          <i class="fas fa-receipt"></i>
+          <span>#${orderSn}</span>
         </div>
-        <div class="order-date-section">
-          <i class="fas fa-calendar"></i> ${orderDate}
+        <div class="order-status-badge status-${status.class}">
+          <i class="fas fa-circle"></i>
+          ${status.text}
         </div>
       </div>
 
-      <!-- INFORMAÇÕES DO CLIENTE -->
-      <div class="order-customer-section">
-        <div class="customer-info">
-          <i class="fas fa-user"></i>
-          <span class="customer-name">${buyerUsername}</span>
-        </div>
-        <div class="order-metrics">
-          <div class="metric-item">
-            <i class="fas fa-box"></i>
-            <span class="metric-value">${itemsCount}</span>
-            <span class="metric-label">itens</span>
+      <!-- BODY -->
+      <div class="order-card-body">
+        
+        <!-- Cliente -->
+        <div class="order-section">
+          <div class="section-icon">
+            <i class="fas fa-user-circle"></i>
           </div>
-          <div class="metric-item">
-            <i class="fas fa-clock"></i>
-            <span class="metric-value">${orderPerformance.processing_time}</span>
-            <span class="metric-label">processamento</span>
+          <div class="section-content">
+            <div class="section-label">Cliente</div>
+            <div class="section-value">${buyerUsername}</div>
           </div>
         </div>
-      </div>
 
-      <!-- PRODUTOS DO PEDIDO -->
-      <div class="order-items-section">
-        <div class="items-header">
-          <i class="fas fa-shopping-bag"></i>
-          <span>Produtos (${itemsCount})</span>
+        <!-- Data -->
+        <div class="order-section">
+          <div class="section-icon">
+            <i class="fas fa-calendar-alt"></i>
+          </div>
+          <div class="section-content">
+            <div class="section-label">Data do Pedido</div>
+            <div class="section-value">${orderDate}</div>
+          </div>
         </div>
-        <div class="items-preview">
-          ${order.details?.item_list ?
-            order.details.item_list.slice(0, 3).map(item => `
-              <div class="item-preview">
-                <div class="item-info">
-                  <span class="item-name">${(item.item_name || 'Produto').substring(0, 40)}${item.item_name?.length > 40 ? '...' : ''}</span>
-                  <span class="item-quantity">Qtd: ${item.model_quantity_purchased || 1}</span>
+
+        <!-- Produtos -->
+        <div class="order-section full-width">
+          <div class="section-icon">
+            <i class="fas fa-box-open"></i>
+          </div>
+          <div class="section-content">
+            <div class="section-label">Produtos (${itemsCount})</div>
+            <div class="order-items-list">
+              ${items.slice(0, 3).map(item => `
+                <div class="order-item-mini">
+                  <span class="item-name">${(item.item_name || 'Produto').substring(0, 40)}...</span>
+                  <span class="item-qty">x${item.model_quantity_purchased || 1}</span>
                 </div>
-              </div>
-            `).join('') :
-            '<div class="no-items">Informações dos produtos não disponíveis</div>'
-          }
-          ${itemsCount > 3 ? `<div class="more-items">+${itemsCount - 3} produtos</div>` : ''}
-        </div>
-      </div>
-
-      <!-- VALORES FINANCEIROS -->
-      <div class="order-financial-section">
-        <div class="financial-grid">
-          <div class="financial-item total">
-            <i class="fas fa-dollar-sign"></i>
-            <div class="financial-info">
-              <span class="financial-label">Total</span>
-              <span class="financial-value">R$ ${totalAmount.toFixed(2)}</span>
+              `).join('')}
+              ${itemsCount > 3 ? `<div class="more-items">+${itemsCount - 3} produtos</div>` : ''}
             </div>
           </div>
-          <div class="financial-item shipping">
-            <i class="fas fa-truck"></i>
-            <div class="financial-info">
-              <span class="financial-label">Frete</span>
-              <span class="financial-value">R$ ${shippingFee.toFixed(2)}</span>
-            </div>
-          </div>
-          ${order.details?.payment_method ? `
-            <div class="financial-item payment">
-              <i class="fas fa-credit-card"></i>
-              <div class="financial-info">
-                <span class="financial-label">Pagamento</span>
-                <span class="financial-value">${getPaymentMethodText(order.details.payment_method)}</span>
-              </div>
-            </div>
-          ` : ''}
         </div>
+
+        <!-- Valores -->
+        <div class="order-financial-section">
+          <div class="financial-row">
+            <span class="financial-label">Subtotal:</span>
+            <span class="financial-value">R$ ${(totalAmount - shippingFee).toFixed(2)}</span>
+          </div>
+          <div class="financial-row">
+            <span class="financial-label">Frete:</span>
+            <span class="financial-value">R$ ${shippingFee.toFixed(2)}</span>
+          </div>
+          <div class="financial-row total">
+            <span class="financial-label">Total:</span>
+            <span class="financial-value">R$ ${totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+
       </div>
 
-      <!-- ENDEREÇO (SE DISPONÍVEL) -->
-      ${order.details?.recipient_address ? `
-        <div class="order-address-section">
-          <div class="address-header">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Endereço de Entrega</span>
-          </div>
-          <div class="address-info">
-            <div class="address-name">${order.details.recipient_address.name || 'N/A'}</div>
-            <div class="address-location">${order.details.recipient_address.full_address || order.details.recipient_address.address || 'Endereço não disponível'}</div>
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- PERFORMANCE DO PEDIDO -->
-      <div class="order-performance-section">
-        <div class="performance-metrics">
-          <div class="performance-item">
-            <i class="fas fa-star"></i>
-            <span class="performance-label">Score</span>
-            <span class="performance-value">${orderPerformance.score}</span>
-          </div>
-          <div class="performance-item">
-            <i class="fas fa-shipping-fast"></i>
-            <span class="performance-label">Prioridade</span>
-            <span class="performance-value priority-${orderPerformance.priority}">${orderPerformance.priority_text}</span>
-          </div>
-          <div class="performance-item">
-            <i class="fas fa-chart-line"></i>
-            <span class="performance-label">Risco</span>
-            <span class="performance-value risk-${orderPerformance.risk}">${orderPerformance.risk_text}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- AÇÕES DO PEDIDO -->
-      <div class="order-actions">
-        <button class="btn btn-primary btn-sm" onclick="viewOrderDetails('${orderSn}')" title="Ver detalhes completos">
-          <i class="fas fa-eye"></i> Detalhes
+      <!-- FOOTER -->
+      <div class="order-card-footer">
+        <button class="btn-order-action primary" onclick="viewOrderDetails('${orderSn}')">
+          <i class="fas fa-eye"></i>
+          Ver Detalhes
         </button>
-        <button class="btn btn-info btn-sm" onclick="trackOrder('${orderSn}')" title="Rastrear pedido">
-          <i class="fas fa-route"></i> Rastrear
+        <button class="btn-order-action secondary" onclick="trackOrder('${orderSn}')">
+          <i class="fas fa-truck"></i>
+          Rastrear
         </button>
-        ${hasAddressAlert ? `
-          <button class="btn btn-warning btn-sm" onclick="viewAddressHistory('${orderSn}')" title="Ver alterações de endereço">
-            <i class="fas fa-exclamation-triangle"></i> Alertas
-          </button>
-        ` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="exportOrderData('${orderSn}')" title="Exportar pedido">
+        <button class="btn-order-action tertiary" onclick="exportOrderData('${orderSn}')">
           <i class="fas fa-download"></i>
         </button>
       </div>

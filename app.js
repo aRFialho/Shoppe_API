@@ -3,6 +3,12 @@ const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
 const app = express();
+const dbModule = require('./src/database/db');
+// ========================================
+// BANCO DE DADOS
+// ========================================
+const { sequelize, testConnection } = require('./src/config/database');
+const { Product, Order, SyncLog, syncDatabase } = require('./src/models/Index');
 
 app.use(express.json());
 
@@ -71,6 +77,80 @@ console.log('📍 Partner ID:', SHOPEE_CONFIG.partner_id);
 console.log('🔐 Partner Key:', SHOPEE_CONFIG.partner_key.substring(0, 10) + '...');
 console.log('🌐 Domínio:', FIXED_DOMAIN);
 console.log('🔗 Callback:', SHOPEE_CONFIG.redirect_url);
+// ========================================
+// BANCO DE DADOS SIMPLES
+// ========================================
+const fs = require('fs');
+const sqlite3 = require('sqlite3').verbose();
+
+// Verificar se o banco existe
+if (!fs.existsSync('./database.sqlite')) {
+  console.log('📦 Criando banco de dados...');
+  const db = new sqlite3.Database('./database.sqlite');
+  
+  db.serialize(() => {
+    // Tabela produtos
+    db.run(`
+      CREATE TABLE products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id TEXT UNIQUE NOT NULL,
+        shop_id TEXT NOT NULL,
+        item_name TEXT,
+        price REAL DEFAULT 0,
+        stock INTEGER DEFAULT 0,
+        images TEXT DEFAULT '[]',
+        views INTEGER DEFAULT 0,
+        sales INTEGER DEFAULT 0,
+        rating REAL DEFAULT 0,
+        rating_count INTEGER DEFAULT 0,
+        last_synced TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Tabela pedidos
+    db.run(`
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_sn TEXT UNIQUE NOT NULL,
+        shop_id TEXT NOT NULL,
+        buyer_username TEXT,
+        total_amount REAL DEFAULT 0,
+        status TEXT DEFAULT 'UNPAID',
+        items TEXT DEFAULT '[]',
+        shipping_address TEXT DEFAULT '{}',
+        payment_method TEXT,
+        created_time TEXT,
+        updated_time TEXT,
+        last_synced TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Tabela logs
+    db.run(`
+      CREATE TABLE sync_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_type TEXT NOT NULL,
+        items_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        error_message TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log('✅ Banco de dados criado!');
+  });
+  
+  db.close();
+} else {
+  console.log('✅ Banco de dados já existe');
+}
+
+// Chamar a função
+initializeSimpleDatabase();
+
+
 
 // ========================================
 // FUNÇÕES AUXILIARES
@@ -996,192 +1076,160 @@ app.get('/api/my-shopee/product-details/:item_id', async (req, res) => {
 
 // 2. PAGINAÇÃO DE PRODUTOS
 // 
-// ROTA CORRIGIDA: BUSCAR PRODUTOS COM DADOS COMPLETOS
+// ROTA: BUSCAR PRODUTOS (COM CACHE)
 // 
 app.get('/api/my-shopee/products/page/:page', async (req, res) => {
- let responseData = {};   
   try {
     const page = parseInt(req.params.page) || 0;
-    const pageSize = 50; // Reduzir para 50 para garantir que funcione
-    
-    console.log(`📄 [PÁGINA ${page}] Iniciando busca de produtos...`);
-    
-    // Verificar conexão
-    if (!connectionStore.connected || !connectionStore.access_token) {
-      console.log('❌ Loja não conectada');
-      return res.status(401).json({
-        success: false,
-        error: 'Loja não conectada. Conecte sua loja primeiro.'
-      });
-    }
+    const pageSize = 50;
+    const offset = page * pageSize;
 
-    console.log(`✅ Loja conectada: Shop ID ${connectionStore.shop_id}`);
+    console.log(`📄 Buscando produtos da página ${page} (cache)...`);
 
-    // ============================================
-    // ETAPA 1: Buscar lista de IDs dos produtos
-    // ============================================
-    console.log(`🔍 [ETAPA 1] Buscando lista de IDs...`);
-    
-    const timestamp1 = Math.floor(Date.now() / 1000);
-    const path1 = '/api/v2/product/get_item_list';
-    const signature1 = generateSignature(
-      path1,
-      timestamp1,
-      connectionStore.access_token,
-      connectionStore.shop_id
-    );
-
-    const listResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path1}`, {
-      params: {
-        partner_id: SHOPEE_CONFIG.partner_id,
-        timestamp: timestamp1,
-        access_token: connectionStore.access_token,
-        shop_id: connectionStore.shop_id,
-        sign: signature1,
-        item_status: 'NORMAL',
-        page_size: pageSize,
-        offset: page * pageSize
-      },
-      timeout: 30000
+    // Buscar do banco de dados
+    const products = await dbModule.getProducts({
+      limit: pageSize,
+      offset: offset
     });
 
-    console.log(`📊 [ETAPA 1] Resposta recebida:`, {
-      error: listResponse.data.error,
-      message: listResponse.data.message,
-      total_items: listResponse.data.response?.item?.length || 0
-    });
+    const totalCount = await dbModule.countProducts();
 
-    if (listResponse.data.error) {
-      throw new Error(`Shopee API Error: ${listResponse.data.message}`);
-    }
+    console.log(`✅ ${products.length} produtos carregados do cache`);
 
-    const items = listResponse.data.response?.item || [];
-    const hasNextPage = listResponse.data.response?.has_next_page || false;
-    const totalCount = listResponse.data.response?.total_count || 0;
-
-    console.log(`✅ [ETAPA 1] ${items.length} IDs encontrados`);
-
-    if (items.length === 0) {
-      console.log('⚠️ Nenhum produto encontrado nesta página');
-      return res.json({
-        success: true,
-        products: [],
-        total_count: totalCount,
-        has_next_page: false,
-        page: page
-      });
-    }
-
-    // ============================================
-    // ETAPA 2: Buscar detalhes completos dos produtos
-    // ============================================
-    console.log(`🔍 [ETAPA 2] Buscando detalhes completos...`);
-    
-    const itemIds = items.map(item => item.item_id);
-    console.log(`📋 IDs para buscar: ${itemIds.join(', ')}`);
-    
-    const timestamp2 = Math.floor(Date.now() / 1000);
-    const path2 = '/api/v2/product/get_item_base_info';
-    const signature2 = generateSignature(
-      path2,
-      timestamp2,
-      connectionStore.access_token,
-      connectionStore.shop_id
-    );
-
-    const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
-      params: {
-        partner_id: SHOPEE_CONFIG.partner_id,
-        timestamp: timestamp2,
-        access_token: connectionStore.access_token,
-        shop_id: connectionStore.shop_id,
-        sign: signature2,
-        item_id_list: itemIds.join(','),
-        need_tax_info: false,
-        need_complaint_policy: false
-      },
-      timeout: 45000
-    });
-
-    console.log(`📊 [ETAPA 2] Resposta recebida:`, {
-      error: detailsResponse.data.error,
-      message: detailsResponse.data.message,
-      items_returned: detailsResponse.data.response?.item_list?.length || 0
-    });
-
-    if (detailsResponse.data.error) {
-      console.error(`❌ Erro na API de detalhes: ${detailsResponse.data.message}`);
-      // Retornar produtos básicos mesmo com erro
-      return res.json({
-        success: true,
-        products: items,
-        total_count: totalCount,
-        has_next_page: hasNextPage,
-        page: page,
-        warning: 'Detalhes completos não disponíveis'
-      });
-    }
-
-    const productsWithDetails = detailsResponse.data.response?.item_list || [];
-    
-    console.log(`✅ [ETAPA 2] ${productsWithDetails.length} produtos com detalhes`);
-
-    // Verificar se os detalhes estão completos
-    if (productsWithDetails.length > 0) {
-      const sample = productsWithDetails[0];
-      console.log(`🔍 [VERIFICAÇÃO] Amostra do primeiro produto:`, {
-        item_id: sample.item_id,
-        has_name: !!sample.item_name,
-        has_price: !!(sample.price_info && sample.price_info.length > 0),
-        has_images: !!(sample.image && sample.image.image_url_list && sample.image.image_url_list.length > 0),
-        has_stock: !!sample.stock_info_v2
-      });
-    }
-
-    // ============================================
-    // ETAPA 3: Processar e formatar dados
-    // ============================================
-    console.log(`🔧 [ETAPA 3] Processando dados...`);
-    
-    const processedProducts = productsWithDetails.map(product => {
-      // Processar imagens
-      let images = [];
-      if (product.image && product.image.image_url_list) {
-        images = product.image.image_url_list.map(img => 
-          img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`
-        );
-      }
-
-      return {
-        ...product,
-        images: images // Adicionar campo images no nível raiz para compatibilidade
-      };
-    });
-
-    console.log(`✅ [ETAPA 3] ${processedProducts.length} produtos processados`);
-
-    // ============================================
-    // RESPOSTA FINAL
-    // ============================================
     res.json({
       success: true,
-      products: processedProducts,
+      products: products,
       total_count: totalCount,
-      has_next_page: hasNextPage,
+      has_next_page: (offset + pageSize) < totalCount,
       page: page,
-      items_in_page: processedProducts.length
+      from_cache: true
     });
 
-    console.log(`🎉 [SUCESSO] Página ${page} enviada com ${processedProducts.length} produtos`);
-
   } catch (error) {
-    console.error('❌ [ERRO CRÍTICO] Erro ao buscar produtos:', error.message);
-    console.error('Stack:', error.stack);
-    
+    console.error('❌ Erro ao buscar produtos:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
-      details: error.response?.data || null
+      error: error.message
+    });
+  }
+});
+
+// 
+// ROTA: SINCRONIZAR PRODUTOS COM SHOPEE
+// 
+app.post('/api/my-shopee/products/sync', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronização de produtos...');
+
+    if (!connectionStore.connected || !connectionStore.access_token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Loja não conectada'
+      });
+    }
+
+    let allProducts = [];
+    let currentPage = 0;
+    let hasNextPage = true;
+    const pageSize = 50;
+
+    // ETAPA 1: Buscar todos os IDs
+    while (hasNextPage) {
+      const timestamp1 = Math.floor(Date.now() / 1000);
+      const path1 = '/api/v2/product/get_item_list';
+      const signature1 = generateSignature(
+        path1,
+        timestamp1,
+        connectionStore.access_token,
+        connectionStore.shop_id
+      );
+
+      const listResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path1}`, {
+        params: {
+          partner_id: SHOPEE_CONFIG.partner_id,
+          timestamp: timestamp1,
+          access_token: connectionStore.access_token,
+          shop_id: connectionStore.shop_id,
+          sign: signature1,
+          item_status: 'NORMAL',
+          page_size: pageSize,
+          offset: currentPage * pageSize
+        },
+        timeout: 30000
+      });
+
+      if (listResponse.data.error) {
+        throw new Error(`Shopee API Error: ${listResponse.data.message}`);
+      }
+
+      const items = listResponse.data.response?.item || [];
+      hasNextPage = listResponse.data.response?.has_next_page || false;
+
+      if (items.length > 0) {
+        // ETAPA 2: Buscar detalhes completos
+        const itemIds = items.map(item => item.item_id);
+        
+        const timestamp2 = Math.floor(Date.now() / 1000);
+        const path2 = '/api/v2/product/get_item_base_info';
+        const signature2 = generateSignature(
+          path2,
+          timestamp2,
+          connectionStore.access_token,
+          connectionStore.shop_id
+        );
+
+        const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
+          params: {
+            partner_id: SHOPEE_CONFIG.partner_id,
+            timestamp: timestamp2,
+            access_token: connectionStore.access_token,
+            shop_id: connectionStore.shop_id,
+            sign: signature2,
+            item_id_list: itemIds.join(','),
+            need_tax_info: false,
+            need_complaint_policy: false
+          },
+          timeout: 45000
+        });
+
+        if (!detailsResponse.data.error) {
+          const detailedItems = detailsResponse.data.response?.item_list || [];
+          
+          // Processar imagens
+          const processedItems = detailedItems.map(product => {
+            let images = [];
+            if (product.image && product.image.image_url_list) {
+              images = product.image.image_url_list.map(img => 
+                img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`
+              );
+            }
+            return { ...product, images };
+          });
+
+          allProducts.push(...processedItems);
+        }
+      }
+
+      currentPage++;
+      console.log(`📄 Página ${currentPage} processada (${allProducts.length} produtos)`);
+    }
+
+    // ETAPA 3: Salvar no banco
+    await dbModule.saveProducts(allProducts);
+
+    console.log(`✅ Sincronização concluída: ${allProducts.length} produtos`);
+
+    res.json({
+      success: true,
+      message: 'Produtos sincronizados com sucesso',
+      total_synced: allProducts.length
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na sincronização:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
@@ -1370,6 +1418,90 @@ app.get('/api/analysis/product/:itemId', async (req, res) => {
 // ========================================
 // SCRAPING REAL DA SHOPEE
 // ========================================
+// 
+// FUNÇÃO PARA RENOVAR TOKEN AUTOMATICAMENTE
+// 
+async function refreshAccessToken() {
+  try {
+    console.log('🔄 Renovando access token...');
+
+    const tokens = await dbModule.getTokens(connectionStore.shop_id);
+    
+    if (!tokens || !tokens.refresh_token) {
+      console.log('❌ Refresh token não encontrado');
+      return false;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/auth/access_token/get';
+    const baseString = `${SHOPEE_CONFIG.partner_id}${path}${timestamp}${connectionStore.shop_id}${tokens.refresh_token}`;
+    const signature = crypto
+      .createHmac('sha256', SHOPEE_CONFIG.partner_key)
+      .update(baseString)
+      .digest('hex');
+
+    const response = await axios.post(`${SHOPEE_CONFIG.api_base}${path}`, {
+      partner_id: parseInt(SHOPEE_CONFIG.partner_id),
+      shop_id: parseInt(connectionStore.shop_id),
+      refresh_token: tokens.refresh_token,
+      sign: signature,
+      timestamp: timestamp
+    });
+
+    if (response.data.error) {
+      console.error('❌ Erro ao renovar token:', response.data.message);
+      return false;
+    }
+
+    const newAccessToken = response.data.access_token;
+    const newRefreshToken = response.data.refresh_token;
+    const expiresIn = response.data.expire_in;
+
+    // Atualizar em memória
+    connectionStore.access_token = newAccessToken;
+    connectionStore.refresh_token = newRefreshToken;
+
+    // Salvar no banco
+    await dbModule.saveTokens(connectionStore.shop_id, newAccessToken, newRefreshToken, expiresIn);
+
+    // Salvar no arquivo
+    saveConnectionData();
+
+    console.log('✅ Token renovado com sucesso');
+    return true;
+
+  } catch (error) {
+    console.error('❌ Erro ao renovar token:', error);
+    return false;
+  }
+}
+
+// Verificar e renovar token antes de cada requisição
+async function ensureValidToken() {
+  if (!connectionStore.connected || !connectionStore.shop_id) {
+    return false;
+  }
+
+  const tokens = await dbModule.getTokens(connectionStore.shop_id);
+  
+  if (!tokens) {
+    return false;
+  }
+
+  if (dbModule.isTokenExpired(tokens.expires_at)) {
+    console.log('⚠️ Token expirado, renovando...');
+    return await refreshAccessToken();
+  }
+
+  return true;
+}
+
+// Agendar renovação automática (a cada 3 horas)
+setInterval(async () => {
+  if (connectionStore.connected) {
+    await ensureValidToken();
+  }
+}, 3 * 60 * 60 * 1000);
 
 // Função principal para buscar produtos similares
 async function searchSimilarProducts(productName, productPrice) {
@@ -1980,41 +2112,147 @@ app.get('/api/analysis/export/:itemId', async (req, res) => {
 // ========================================
 // GESTÃO COMPLETA DE PEDIDOS
 // ========================================
-
-// Rota principal para buscar pedidos
+// 
+// ROTA: BUSCAR PEDIDOS (COM CACHE)
+// 
 app.get('/api/my-shopee/orders', async (req, res) => {
-  if (!connectionStore.connected) {
-    return res.json({
-      success: false,
-      error: 'Não conectado',
-      message: 'Conecte sua loja primeiro'
-    });
-  }
-
   try {
-    const { page = 0, status = 'ALL', days = 30 } = req.query;
+    const page = parseInt(req.query.page) || 0;
+    const status = req.query.status || 'ALL';
+    const days = parseInt(req.query.days) || 30;
+    const pageSize = 50;
 
-    console.log(`🛒 Buscando pedidos - Página: ${page}, Status: ${status}, Dias: ${days}`);
+    console.log(`📦 Buscando pedidos (cache): status=${status}, days=${days}`);
 
-    const orders = await fetchShopeeOrders(page, status, days);
+    const orders = await dbModule.getOrders({
+      status: status,
+      days: days,
+      limit: pageSize,
+      offset: page * pageSize
+    });
+
+    const totalCount = await dbModule.countOrders({ status, days });
 
     res.json({
       success: true,
       orders: orders,
-      total: orders.length,
-      page: parseInt(page),
+      total: totalCount,
+      page: page,
       status_filter: status,
       days_filter: days,
-      shop_name: connectionStore.shop_info?.shop_name || 'N/A',
-      last_update: new Date().toISOString()
+      from_cache: true
     });
 
   } catch (error) {
     console.error('❌ Erro ao buscar pedidos:', error);
-    res.json({
+    res.status(500).json({
       success: false,
-      error: error.message,
-      message: 'Erro ao buscar pedidos da Shopee'
+      error: error.message
+    });
+  }
+});
+
+// 
+// ROTA: SINCRONIZAR PEDIDOS COM SHOPEE
+// 
+app.post('/api/my-shopee/orders/sync', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronização de pedidos...');
+
+    if (!connectionStore.connected || !connectionStore.access_token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Loja não conectada'
+      });
+    }
+
+    // Buscar pedidos dos últimos 90 dias
+    const timeFrom = Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60);
+    const timeTo = Math.floor(Date.now() / 1000);
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/order/get_order_list';
+    const signature = generateSignature(
+      path,
+      timestamp,
+      connectionStore.access_token,
+      connectionStore.shop_id
+    );
+
+    const response = await axios.get(`${SHOPEE_CONFIG.api_base}${path}`, {
+      params: {
+        partner_id: SHOPEE_CONFIG.partner_id,
+        timestamp: timestamp,
+        access_token: connectionStore.access_token,
+        shop_id: connectionStore.shop_id,
+        sign: signature,
+        time_range_field: 'create_time',
+        time_from: timeFrom,
+        time_to: timeTo,
+        page_size: 100
+      },
+      timeout: 30000
+    });
+
+    if (response.data.error) {
+      throw new Error(`Shopee API Error: ${response.data.message}`);
+    }
+
+    const orderList = response.data.response?.order_list || [];
+    
+    // Buscar detalhes de cada pedido
+    const orderSnList = orderList.map(o => o.order_sn);
+    
+    if (orderSnList.length > 0) {
+      const timestamp2 = Math.floor(Date.now() / 1000);
+      const path2 = '/api/v2/order/get_order_detail';
+      const signature2 = generateSignature(
+        path2,
+        timestamp2,
+        connectionStore.access_token,
+        connectionStore.shop_id
+      );
+
+      const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
+        params: {
+          partner_id: SHOPEE_CONFIG.partner_id,
+          timestamp: timestamp2,
+          access_token: connectionStore.access_token,
+          shop_id: connectionStore.shop_id,
+          sign: signature2,
+          order_sn_list: orderSnList.join(','),
+          response_optional_fields: 'buyer_user_id,buyer_username,estimated_shipping_fee,recipient_address,actual_shipping_fee,goods_to_declare,note,note_update_time,item_list,pay_time,dropshipper,credit_card_number,dropshipper_phone,split_up,buyer_cancel_reason,cancel_by,cancel_reason,actual_shipping_fee_confirmed,buyer_cpf_id,fulfillment_flag,pickup_done_time,package_list,shipping_carrier,payment_method,total_amount,buyer_username,invoice_data,checkout_shipping_carrier,reverse_shipping_fee'
+        },
+        timeout: 45000
+      });
+
+      if (!detailsResponse.data.error) {
+        const ordersWithDetails = detailsResponse.data.response?.order_list || [];
+        
+        // Salvar no banco
+        await dbModule.saveOrders(ordersWithDetails);
+
+        console.log(`✅ ${ordersWithDetails.length} pedidos sincronizados`);
+
+        return res.json({
+          success: true,
+          message: 'Pedidos sincronizados com sucesso',
+          total_synced: ordersWithDetails.length
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Nenhum pedido para sincronizar',
+      total_synced: 0
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na sincronização:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
