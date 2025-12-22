@@ -80,7 +80,6 @@ console.log('🔗 Callback:', SHOPEE_CONFIG.redirect_url);
 // ========================================
 // BANCO DE DADOS SIMPLES
 // ========================================
-const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // Verificar se o banco existe
@@ -475,7 +474,6 @@ app.get('/api/test-auth-real', async (req, res) => {
 // DEBUG ENDPOINT
 // ========================================
 app.get('/debug/files', (req, res) => {
-  const fs = require('fs');
 
   const checkPaths = [
     path.join(__dirname, 'src', 'public', 'css', 'dashboard.css'),
@@ -546,7 +544,6 @@ app.use(
 app.get('/', (req, res) => res.redirect('/dashboard'));
 
 app.get('/dashboard', (req, res) => {
-  const fs = require('fs');
   const dashboardPath = path.join(__dirname, 'src', 'views', 'dashboard.html');
 
   if (fs.existsSync(dashboardPath)) {
