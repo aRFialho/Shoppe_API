@@ -1186,30 +1186,6 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
   }
 });
 
-    console.log('📦 Resposta da Shopee:', responseData);
-
-    // Verificar se há erro na resposta
-    if (responseData.error) {
-      console.log('❌ Erro na API da Shopee:', responseData);
-      return res.json({
-        success: false,
-        error: responseData.error,
-        message: responseData.message || 'Erro na API da Shopee',
-        details: responseData
-      });
-    }
-
-    const items = (responseData && responseData.response && responseData.response.item) || [];
-
-    res.json({
-      success: true,
-      products: items,
-      total_count: responseData.response.total_count || items.length,
-      page: page,
-      page_size: pageSize,
-      has_next_page: responseData.response.has_next_page || false
-    });
-
 // 3. ESTATÍSTICAS DA LOJA
 app.get('/api/my-shopee/stats', async (req, res) => {
   if (!connectionStore.connected) {
