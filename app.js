@@ -1127,6 +1127,260 @@ app.get('/api/my-shopee/product-details/:item_id', async (req, res) => {
   }
 });
 
+// 
+// ROTA: SINCRONIZAR PRODUTOS COM SHOPEE
+// 
+app.post('/api/my-shopee/products/sync', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronização de produtos...');
+
+    if (!connectionStore.connected || !connectionStore.access_token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Loja não conectada'
+      });
+    }
+
+    let allProducts = [];
+    let currentPage = 0;
+    let hasNextPage = true;
+    const pageSize = 50;
+
+    // ETAPA 1: Buscar todos os IDs
+    while (hasNextPage) {
+      const timestamp1 = Math.floor(Date.now() / 1000);
+      const path1 = '/api/v2/product/get_item_list';
+      const signature1 = generateSignature(
+        path1,
+        timestamp1,
+        connectionStore.access_token,
+        connectionStore.shop_id
+      );
+
+      console.log(`📄 Buscando página ${currentPage}...`);
+
+      const listResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path1}`, {
+        params: {
+          partner_id: SHOPEE_CONFIG.partner_id,
+          timestamp: timestamp1,
+          access_token: connectionStore.access_token,
+          shop_id: connectionStore.shop_id,
+          sign: signature1,
+          item_status: 'NORMAL',
+          page_size: pageSize,
+          offset: currentPage * pageSize
+        },
+        timeout: 30000
+      });
+
+      if (listResponse.data.error) {
+        throw new Error(`Shopee API Error: ${listResponse.data.message}`);
+      }
+
+      const items = listResponse.data.response?.item || [];
+      hasNextPage = listResponse.data.response?.has_next_page || false;
+
+      console.log(`✅ Página ${currentPage}: ${items.length} produtos encontrados`);
+
+      if (items.length > 0) {
+        // ETAPA 2: Buscar detalhes completos
+        const itemIds = items.map(item => item.item_id);
+        
+        const timestamp2 = Math.floor(Date.now() / 1000);
+        const path2 = '/api/v2/product/get_item_base_info';
+        const signature2 = generateSignature(
+          path2,
+          timestamp2,
+          connectionStore.access_token,
+          connectionStore.shop_id
+        );
+
+        console.log(`🔍 Buscando detalhes de ${itemIds.length} produtos...`);
+
+        const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
+          params: {
+            partner_id: SHOPEE_CONFIG.partner_id,
+            timestamp: timestamp2,
+            access_token: connectionStore.access_token,
+            shop_id: connectionStore.shop_id,
+            sign: signature2,
+            item_id_list: itemIds.join(','),
+            need_tax_info: false,
+            need_complaint_policy: false
+          },
+          timeout: 45000
+        });
+
+        if (!detailsResponse.data.error) {
+          const detailedItems = detailsResponse.data.response?.item_list || [];
+          
+          // Processar imagens
+          const processedItems = detailedItems.map(product => {
+            let images = [];
+            if (product.image && product.image.image_url_list) {
+              images = product.image.image_url_list.map(img => 
+                img.startsWith('http') ? img : `https://cf.shopee.com.br/file/${img}`
+              );
+            }
+            return { ...product, images };
+          });
+
+          allProducts.push(...processedItems);
+          console.log(`✅ Total acumulado: ${allProducts.length} produtos`);
+        }
+      }
+
+      currentPage++;
+      
+      // Aguardar 1 segundo entre requisições para evitar rate limit
+      if (hasNextPage) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    // ETAPA 3: Salvar no banco
+    if (allProducts.length > 0) {
+      console.log(`💾 Salvando ${allProducts.length} produtos no banco...`);
+      await dbModule.saveProducts(allProducts);
+    }
+
+    console.log(`✅ Sincronização concluída: ${allProducts.length} produtos`);
+
+    res.json({
+      success: true,
+      message: 'Produtos sincronizados com sucesso',
+      total_synced: allProducts.length
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na sincronização:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
+
+// 
+// ROTA: SINCRONIZAR PEDIDOS COM SHOPEE
+// 
+app.post('/api/my-shopee/orders/sync', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronização de pedidos...');
+
+    if (!connectionStore.connected || !connectionStore.access_token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Loja não conectada'
+      });
+    }
+
+    // Buscar pedidos dos últimos 90 dias
+    const timeFrom = Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60);
+    const timeTo = Math.floor(Date.now() / 1000);
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/order/get_order_list';
+    const signature = generateSignature(
+      path,
+      timestamp,
+      connectionStore.access_token,
+      connectionStore.shop_id
+    );
+
+    console.log(`📦 Buscando pedidos dos últimos 90 dias...`);
+
+    const response = await axios.get(`${SHOPEE_CONFIG.api_base}${path}`, {
+      params: {
+        partner_id: SHOPEE_CONFIG.partner_id,
+        timestamp: timestamp,
+        access_token: connectionStore.access_token,
+        shop_id: connectionStore.shop_id,
+        sign: signature,
+        time_range_field: 'create_time',
+        time_from: timeFrom,
+        time_to: timeTo,
+        page_size: 100
+      },
+      timeout: 30000
+    });
+
+    if (response.data.error) {
+      throw new Error(`Shopee API Error: ${response.data.message}`);
+    }
+
+    const orderList = response.data.response?.order_list || [];
+    
+    console.log(`✅ ${orderList.length} pedidos encontrados`);
+
+    if (orderList.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Nenhum pedido para sincronizar',
+        total_synced: 0
+      });
+    }
+
+    // Buscar detalhes de cada pedido
+    const orderSnList = orderList.map(o => o.order_sn);
+    
+    const timestamp2 = Math.floor(Date.now() / 1000);
+    const path2 = '/api/v2/order/get_order_detail';
+    const signature2 = generateSignature(
+      path2,
+      timestamp2,
+      connectionStore.access_token,
+      connectionStore.shop_id
+    );
+
+    console.log(`🔍 Buscando detalhes de ${orderSnList.length} pedidos...`);
+
+    const detailsResponse = await axios.get(`${SHOPEE_CONFIG.api_base}${path2}`, {
+      params: {
+        partner_id: SHOPEE_CONFIG.partner_id,
+        timestamp: timestamp2,
+        access_token: connectionStore.access_token,
+        shop_id: connectionStore.shop_id,
+        sign: signature2,
+        order_sn_list: orderSnList.join(','),
+        response_optional_fields: 'buyer_user_id,buyer_username,estimated_shipping_fee,recipient_address,actual_shipping_fee,goods_to_declare,note,note_update_time,item_list,pay_time,dropshipper,credit_card_number,dropshipper_phone,split_up,buyer_cancel_reason,cancel_by,cancel_reason,actual_shipping_fee_confirmed,buyer_cpf_id,fulfillment_flag,pickup_done_time,package_list,shipping_carrier,payment_method,total_amount,buyer_username,invoice_data,checkout_shipping_carrier,reverse_shipping_fee'
+      },
+      timeout: 45000
+    });
+
+    if (detailsResponse.data.error) {
+      throw new Error(`Shopee API Error: ${detailsResponse.data.message}`);
+    }
+
+    const ordersWithDetails = detailsResponse.data.response?.order_list || [];
+    
+    console.log(`✅ ${ordersWithDetails.length} pedidos com detalhes`);
+
+    // Salvar no banco
+    if (ordersWithDetails.length > 0) {
+      console.log(`💾 Salvando ${ordersWithDetails.length} pedidos no banco...`);
+      await dbModule.saveOrders(ordersWithDetails);
+    }
+
+    console.log(`✅ Sincronização concluída: ${ordersWithDetails.length} pedidos`);
+
+    res.json({
+      success: true,
+      message: 'Pedidos sincronizados com sucesso',
+      total_synced: ordersWithDetails.length
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na sincronização:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
+
 // 2. PAGINAÇÃO DE PRODUTOS
 // 
 // ROTA: BUSCAR PRODUTOS (COM CACHE)

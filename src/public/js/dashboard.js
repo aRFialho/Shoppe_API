@@ -2676,5 +2676,101 @@ function showCacheStatus() {
   }
 }
 
+// 
+// FUNÇÃO PARA SINCRONIZAR PRODUTOS
+// 
+async function syncProducts() {
+  try {
+    showNotification('🔄 Sincronizando produtos com a Shopee...', 'info');
+    
+    const response = await fetch('/api/my-shopee/products/sync', {
+      method: 'POST'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification(`✅ ${data.total_synced} produtos sincronizados!`, 'success');
+      
+      // Recarregar produtos após 2 segundos
+      setTimeout(() => {
+        loadProducts();
+      }, 2000);
+    } else {
+      throw new Error(data.error);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    showNotification(`❌ Erro: ${error.message}`, 'error');
+  }
+}
+
+// 
+// FUNÇÃO PARA SINCRONIZAR PEDIDOS
+// 
+async function syncOrders() {
+  try {
+    showNotification('🔄 Sincronizando pedidos com a Shopee...', 'info');
+    
+    const response = await fetch('/api/my-shopee/orders/sync', {
+      method: 'POST'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification(`✅ ${data.total_synced} pedidos sincronizados!`, 'success');
+      
+      // Recarregar pedidos após 2 segundos
+      setTimeout(() => {
+        loadOrders();
+      }, 2000);
+    } else {
+      throw new Error(data.error);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    showNotification(`❌ Erro: ${error.message}`, 'error');
+  }
+}
+
+// 
+// FUNÇÃO PARA EXPORTAR PRODUTOS
+// 
+function exportProductsList() {
+  showNotification('📥 Exportando produtos...', 'info');
+  window.location.href = '/api/my-shopee/products/export';
+}
+
+// 
+// FUNÇÃO PARA EXPORTAR PEDIDOS
+// 
+function exportOrdersList() {
+  showNotification('📥 Exportando pedidos...', 'info');
+  window.location.href = '/api/my-shopee/orders/export';
+}
+
+// 
+// FUNÇÃO PARA MOSTRAR NOTIFICAÇÕES
+// 
+function showNotification(message, type = 'info') {
+  // Criar elemento de notificação
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.textContent = message;
+  
+  // Adicionar ao body
+  document.body.appendChild(notification);
+  
+  // Remover após 5 segundos
+  setTimeout(() => {
+    notification.classList.add('fade-out');
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 5000);
+}
 
 console.log('✅ Todas as funções auxiliares foram adicionadas!');
