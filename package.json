@@ -7,7 +7,8 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "init-db": "node scripts/init-simple.js",
-    "init-db-force": "node scripts/init-simple.js --force"
+    "init-db-force": "node scripts/init-simple.js --force",
+    "postinstall": "npm rebuild sqlite3 --build-from-source"
   },
   "dependencies": {
     "axios": "^1.6.0",
