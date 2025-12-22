@@ -1199,16 +1199,6 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
       });
     }
 
-    // Verificar se temos dados válidos
-    if (!responseData.response) {
-      return res.json({
-        success: false,
-        error: 'no_response_data',
-        message: 'Resposta inválida da API da Shopee',
-        details: responseData
-      });
-    }
-
     const items = responseData.response.item || [];
     console.log(`✅ ${items.length} produtos encontrados na página ${page}`);
 
