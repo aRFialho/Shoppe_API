@@ -698,6 +698,7 @@ app.get('/api/my-shopee/status', (req, res) => {
 });
 
 app.get('/api/my-shopee/products', async (req, res) => {
+ let responseData = {};
   if (!connectionStore.connected) {
     return res.json({
       success: true,
