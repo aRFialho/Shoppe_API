@@ -1199,7 +1199,7 @@ app.get('/api/my-shopee/products/page/:page', async (req, res) => {
       });
     }
 
-    const items = responseData.response.item || [];
+    const items = (responseData && responseData.response && responseData.response.item) || [];
     console.log(`✅ ${items.length} produtos encontrados na página ${page}`);
 
     res.json({
