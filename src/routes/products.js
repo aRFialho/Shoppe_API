@@ -20,9 +20,6 @@ router.get('/', productController.getAllProducts);
 // GET /api/products/:id - Buscar produto por ID
 router.get('/:id', productController.getProductById);
 
-// POST /api/products - Criar novo produto
-router.post('/', productController.createProduct);
-
 // PUT /api/products/:id - Atualizar produto
 router.put('/:id', productController.updateProduct);
 
