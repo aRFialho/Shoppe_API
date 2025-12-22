@@ -975,6 +975,7 @@ app.get('/api/my-shopee/product-details/:item_id', async (req, res) => {
 // ROTA CORRIGIDA: BUSCAR PRODUTOS COM DADOS COMPLETOS
 // 
 app.get('/api/my-shopee/products/page/:page', async (req, res) => {
+ let responseData = {};   
   try {
     const page = parseInt(req.params.page) || 0;
     const pageSize = 50; // Reduzir para 50 para garantir que funcione
