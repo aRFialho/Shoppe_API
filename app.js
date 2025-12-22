@@ -145,7 +145,63 @@ if (!fs.existsSync('./database.sqlite')) {
 } else {
   console.log('✅ Banco de dados já existe');
 }
-
+// 
+// FUNÇÃO PARA INICIALIZAR BANCO DE DADOS
+// 
+function initializeSimpleDatabase() {
+  const dbPath = path.join(__dirname, 'database.sqlite');
+  
+  // Verificar se o banco já existe
+  if (fs.existsSync(dbPath)) {
+    console.log('✅ Banco de dados já existe');
+    return;
+  }
+  
+  console.log('🔧 Criando banco de dados...');
+  
+  // Criar banco vazio
+  const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('❌ Erro ao criar banco:', err);
+    } else {
+      console.log('✅ Banco de dados criado com sucesso');
+      
+      // Criar tabelas básicas
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS products (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          item_id INTEGER UNIQUE NOT NULL,
+          item_name TEXT,
+          price REAL,
+          stock INTEGER,
+          sales INTEGER DEFAULT 0,
+          views INTEGER DEFAULT 0,
+          rating REAL DEFAULT 0,
+          images TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          order_sn TEXT UNIQUE NOT NULL,
+          order_status TEXT,
+          buyer_username TEXT,
+          total_amount REAL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+      `, (err) => {
+        if (err) {
+          console.error('❌ Erro ao criar tabelas:', err);
+        } else {
+          console.log('✅ Tabelas criadas com sucesso');
+        }
+        db.close();
+      });
+    }
+  });
+}
 // Chamar a função
 initializeSimpleDatabase();
 
